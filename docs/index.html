@@ -409,6 +409,9 @@
   .menu{position:relative;display:inline-block}
   .menu-list{position:absolute;top:calc(100% + 6px);left:0;background:rgba(246,246,248,.82);border-radius:14px;min-width:250px;padding:5px;z-index:15;display:none}
   .menu.open .menu-list{display:block}
+  .menu-list .menu-h{display:block;padding:6px 10px 4px;font-size:12px;font-weight:600;color:var(--muted)}
+  .menu-list.bz{min-width:180px}
+  .panel:has(.menu.open),.glass:has(.menu.open){position:relative;z-index:30}
   .menu-list button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;border-radius:8px;font-size:14px}
   .menu-list button:hover{background:var(--blue);color:#fff}
 
@@ -1588,14 +1591,16 @@ function renderTf() {
       (/vorstellung/i.test(t.art) ? `<button class="btn sm blue" data-tfa="pt">Probetag planen</button>` : "") +
       `<button class="btn sm go" data-tfa="zusage">Zusage</button>
        <span class="menu"><button class="btn sm" data-tfa="absmenu">Absage</button><span class="menu-list"><button data-tfa="abs_bew">Absage durch Bewerber</button><button data-tfa="abs_ihro">Absage Ihro</button></span></span>
-       <button class="btn sm" data-tfa="noshow">Nicht erschienen</button><button class="btn sm quiet" data-tfa="later">später</button>`)).join("") : "");
+       <button class="btn sm" data-tfa="noshow">Nicht erschienen</button>
+       <span class="menu"><button class="btn sm" data-tfa="bzmenu">Überlegt noch</button><span class="menu-list bz"><span class="menu-h">Nachfassen am …</span><button data-tfa="bz" data-d="2">in 2 Tagen</button><button data-tfa="bz" data-d="3">in 3 Tagen</button><button data-tfa="bz" data-d="7">in 1 Woche</button><button data-tfa="bz" data-d="14">in 2 Wochen</button></span></span>
+       <button class="btn sm quiet" data-tfa="later" title="Blendet den Eintrag nur bis morgen aus">morgen</button>`)).join("") : "");
 }
 $("tfList").addEventListener("click", async (e) => {
   const o = e.target.closest("[data-open]"); if (o) { openLead(o.dataset.open); return; }
   const b = e.target.closest("[data-tfa]"); if (!b) return;
   const row = b.closest("[data-tf]"), t = (W.termine_nah || []).find((x) => x.id === Number(row.dataset.tf)); if (!t) return;
   const a = b.dataset.tfa, l = t.lead || {}, id = t.lead_id, dk = new Date(t.datum + "T12:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
-  if (a === "absmenu") { e.stopPropagation(); b.parentElement.classList.toggle("open"); return; }
+  if (a === "absmenu" || a === "bzmenu") { e.stopPropagation(); document.querySelectorAll("#tfList .menu.open").forEach((m) => m !== b.parentElement && m.classList.remove("open")); b.parentElement.classList.toggle("open"); return; }
   const done = (msg) => { toast(msg); loadWork(); if (selId === id) openLead(id); };
   try {
     if (a === "wa") {
@@ -1606,6 +1611,17 @@ $("tfList").addEventListener("click", async (e) => {
     }
     if (a === "ok") { await api("termin_erinnert", { id: t.id }); return done("Als erinnert vermerkt"); }
     if (a === "later") { tfSnooze(t.id); renderTf(); return; }
+    if (a === "bz") {
+      // Bewerber will es sich überlegen: Status bleibt, Wiedervorlage setzen, Termin aus „Nachfassen“ nehmen
+      const d = new Date(todayISO() + "T09:00:00"); d.setDate(d.getDate() + Number(b.dataset.d));
+      if (d.getDay() === 6) d.setDate(d.getDate() + 2); else if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+      const wann = d.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" });
+      b.disabled = true;
+      await api("termin_status", { id: t.id, status: "erledigt" });
+      await api("lead_followup", { id, at: d.toISOString(), note: `Nachfassen: ${t.art} ${dk} – überlegt es sich` });
+      api("lead_note", { id, text: `${t.art} ${dk}: überlegt es sich noch – nachfassen am ${wann}` }).catch(() => {});
+      return done(`${l.name || t.name}: Wiedervorlage ${wann}`);
+    }
     if (a === "pt") { await api("termin_status", { id: t.id, status: "erledigt" }); api("lead_note", { id, text: `${t.art} ${dk}: positiv – Probetag folgt` }).catch(() => {}); loadWork(); openProbetag({ ...l, lead_id: id, kampagne: l.kampagne || t.meas }); return; }
     const plan = { zusage: ["Mündliche Zusage", "erledigt", "Zusage"], abs_bew: ["Absage durch Bewerber", "erledigt", "Absage durch Bewerber"], abs_ihro: ["Absage Ihro", "erledigt", "Absage Ihro"], noshow: ["No-Show", "abgesagt", "nicht erschienen"] }[a];
     if (!plan) return;
