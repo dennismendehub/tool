@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Tagescockpit</title>
 <meta name="theme-color" content="#C7D5EC">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -80,7 +80,9 @@
   .okpi:hover{transform:translateY(-2px)}
   *{box-sizing:border-box}
   [hidden]{display:none!important}
-  html,body{margin:0}
+  html,body{margin:0;overflow-x:hidden;max-width:100%}
+  @supports (overflow:clip){html,body{overflow-x:clip}}
+  body{overscroll-behavior-x:none}
   html{background:#D9E2EE}
   body{
     color:var(--ink);font:15px/1.45 var(--sans);letter-spacing:-.01em;-webkit-font-smoothing:antialiased;min-height:100vh;
@@ -680,6 +682,9 @@
   .keygrid kbd{min-width:22px;text-align:center}
   /* Handy: Tab-Leiste unten, Bewerberkarte als eigene Ansicht, große Knöpfe */
   .tabbar{display:none}
+  .sustep{display:flex;gap:12px;align-items:flex-start;margin:8px 0;font-size:15px}
+  .sustep b{flex:0 0 26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .loadfail{padding:14px 4px;color:var(--stop-ink);font-size:14px}
   .mbar{display:none}
   @media (max-width:860px){
     body.mcard[data-view="vWork"] #vWork>.panel:first-child,body.mcard[data-view="vWork"] #vWork .side3,body.mcard[data-view="vWork"] .kpiwrap{display:none}
@@ -698,9 +703,13 @@
     .stbtns select{grid-column:1/-1;width:100%!important;min-height:44px}
   }
   @media (max-width:720px){
-    .kpis{display:flex!important;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:4px;scrollbar-width:none}
-    .kpis::-webkit-scrollbar{display:none}
-    .kpis>.kpi{flex:0 0 68%;scroll-snap-align:start}
+    body:not([data-view="vWork"]) .kpiwrap{display:none}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+    .kpi{padding:10px 12px!important;border-radius:16px!important}
+    .kpi .v{font-size:26px!important}.kpi .l{font-size:12px}.kpi .s{font-size:11.5px!important}
+    .kpi .ring{display:none}
+    .kpis>.kpi:nth-child(5){display:none}
+    input.inp,select.inp,textarea.inp,.search input{font-size:16px!important}
     .tabs-top{display:none}
     .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;padding:6px 6px calc(6px + env(safe-area-inset-bottom));
       background:rgba(250,250,252,.86);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--sep)}
@@ -741,6 +750,38 @@
   </div>
 </header>
 <div class="mbar" id="mbar"></div>
+<div class="ov center" id="setupOv" role="dialog" aria-modal="true" aria-labelledby="suTitle">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><div class="t"><b id="suTitle">Cockpit verbinden</b><span>Einmal pro Gerät. Der Schlüssel bleibt nur auf diesem Gerät gespeichert.</span></div></div>
+    <div class="modal-body">
+      <div class="sustep"><b>1</b><span>Am PC im Cockpit oben auf das Zahnrad (Einstellungen) und dann auf <strong>„Aufs Handy übertragen“</strong>.</span></div>
+      <div class="sustep"><b>2</b><span>Den QR-Code mit der <strong>iPhone-Kamera</strong> scannen. Fertig – das Cockpit ist verbunden.</span></div>
+      <div class="hintline" style="margin:14px 0 6px">Oder den Dashboard-Schlüssel hier eintragen:</div>
+      <div class="row" style="gap:8px"><input class="inp" id="suTok" type="password" placeholder="Dashboard-Schlüssel" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1"><button class="btn" id="suPaste" type="button">Einfügen</button></div>
+      <div class="hintline" id="suMsg" style="margin-top:8px"></div>
+    </div>
+    <div class="modal-foot"><button class="btn quiet" id="suMore" style="margin-right:auto">Erweitert</button><button class="btn blue" id="suGo">Verbinden</button></div>
+  </div>
+</div>
+<div class="ov center" id="hsOv" role="dialog" aria-modal="true" aria-labelledby="hsTitle">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head"><div class="t"><b id="hsTitle">Verbunden ✓</b><span>Jetzt noch als App auf den Home-Bildschirm legen.</span></div></div>
+    <div class="modal-body">
+      <div class="sustep"><b>1</b><span>Zuerst hier tippen: <button class="btn sm blue" id="hsCopy" type="button">Schlüssel kopieren</button> <small id="hsCopied" class="hintline"></small></span></div>
+      <div class="sustep"><b>2</b><span>Unten in Safari auf <strong>Teilen</strong> (Quadrat mit Pfeil) → <strong>„Zum Home-Bildschirm“</strong> → Hinzufügen.</span></div>
+      <div class="sustep"><b>3</b><span>Die App über das neue Symbol öffnen. Fragt sie nach dem Schlüssel: auf <strong>„Einfügen“</strong> und <strong>„Verbinden“</strong> tippen.</span></div>
+    </div>
+    <div class="modal-foot"><button class="btn blue" id="hsClose">Alles klar</button></div>
+  </div>
+</div>
+<div class="ov center" id="qrOv" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><div class="t"><b id="qrTitle">Aufs Handy übertragen</b><span>Mit der iPhone-Kamera scannen. Der Code enthält Ihren Schlüssel – nicht weitergeben.</span></div></div>
+    <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:12px"><div id="qrBox" style="background:#fff;padding:14px;border-radius:16px"></div>
+      <div class="hintline" style="text-align:center">Danach auf dem iPhone in Safari: Teilen → „Zum Home-Bildschirm“.</div></div>
+    <div class="modal-foot"><button class="btn blue" id="qrClose">Fertig</button></div>
+  </div>
+</div>
 <nav class="tabbar" id="tabbar" aria-label="Bereiche">
   <button class="on" data-v="vOver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Überblick</span></button>
   <button data-v="vWork"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg><span>Arbeiten</span><i class="n" data-src="tWork"></i></button>
@@ -1181,7 +1222,7 @@ async function loadStats() {
       ${c.art === "sonstig" ? `<span class="pill">kein Bewerber · Notizen</span>` : c.art === "bekannt" ? `<span class="pill blue">bekannter Bewerber</span>` : `<span class="pill ${c.forwarded ? "go" : "stop"}">${c.forwarded ? "neuer Bewerber · LeadTable" : "nicht in LeadTable"}</span>`}</div>${c.notiz ? `<div class="note">${esc(c.notiz)}</div>` : ""}</div>`).join("")
       : `<div class="empty">Noch keine.</div>`;
     $("stand").textContent = "Stand " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-  } catch (e) { if (e.message !== "Nicht eingerichtet") toast(e.message, true); }
+  } catch (e) { if (e.message !== "Nicht eingerichtet") { toast(e.message, true); loadFail(e); } }
 }
 
 // ---------- Arbeiten ----------
@@ -1278,6 +1319,7 @@ function renderSide() {
 }
 async function loadWork() {
   try {
+    if (!configured()) return;
     W = await api("work");
     $("kQueue").textContent = W.arbeitsliste_gesamt;
     const ptn = (W.probetag_planen || []).length; $("ptN").textContent = ptn || ""; $("ptN").hidden = !ptn;
@@ -2068,7 +2110,8 @@ function renderSettings() {
     h += `<div class="ssec"><h3>Kategorien für Gedanken</h3><div id="katList">${S.kategorien.map((k) => `<div class="kat" data-key="${esc(k.key)}"><input class="inp" value="${esc(k.label)}"><button type="button" class="rm" aria-label="Entfernen">✕</button></div>`).join("")}</div><button class="btn sm" id="katAdd" type="button">Kategorie hinzufügen</button></div>`;
     h += `<div class="ssec"><h3>Das weiß Claude über dich</h3><textarea class="inp" id="ctx" style="min-height:110px">${esc(S.kontext)}</textarea></div>`;
   }
-  h += `<div class="ssec"><h3>Verbindung</h3><p class="ex">Wird nur auf diesem Gerät gespeichert.</p><div class="f"><label class="full">Supabase Projekt-URL<input class="inp" id="sUrl" value="${esc(cfg.url)}"></label><label class="full">Dashboard-Schlüssel<input class="inp" id="sTok" type="password" value="${esc(cfg.token)}"></label></div></div>`;
+  h += `<div class="ssec"><h3>Verbindung</h3><p class="ex">Wird nur auf diesem Gerät gespeichert.</p><div class="f"><label class="full">Supabase Projekt-URL<input class="inp" id="sUrl" value="${esc(cfg.url)}"></label><label class="full">Dashboard-Schlüssel<input class="inp" id="sTok" type="password" value="${esc(cfg.token)}"></label></div>
+    ${configured() ? `<button class="btn sm" id="qrBtn" type="button" style="margin-top:10px">Aufs Handy übertragen (QR-Code)</button>` : ""}</div>`;
   $("setBody").innerHTML = h;
   if (!S) return;
   $("stList").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) b.parentElement.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); });
@@ -2085,6 +2128,7 @@ function renderSettings() {
     try { const r = await api("push_test"); $("pushInfo").textContent = r.geraete ? `An ${r.gesendet} von ${r.geraete} ${r.geraete === 1 ? "Gerät" : "Geräten"} gesendet.` : "Noch kein Gerät angemeldet."; }
     catch (e) { $("pushInfo").textContent = e.message; } finally { $("pushTest").disabled = false; }
   });
+  if ($("qrBtn")) $("qrBtn").addEventListener("click", showQr);
   $("syncBtn").addEventListener("click", async () => {
     $("syncBtn").disabled = true; $("syncInfo").innerHTML = `<span class="spin"></span>läuft, etwa eine Minute …`;
     try { const r = await api("sync_leads"); $("syncInfo").textContent = `${r.leads} Bewerber aus ${r.kampagnen} Kampagnen abgeglichen.`; loadWork(); }
@@ -3244,8 +3288,52 @@ setInterval(() => {
   if (!document.hidden && configured()) { loadStats(); loadWork(); if (view === "vMail") loadMails(); if (view === "vOver" && Date.now() - (loadOverview.t || 0) > 5 * 60e3) { loadOverview.t = Date.now(); loadOverview(); } }
 }, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden && configured()) { loadStats(); loadWork(); } });
+// ---------- Einrichtung auf neuen Geräten (iPhone) ----------
+const PAGES_URL = "https://dennismendehub.github.io/tool/";
+function loadFail(e) {
+  const msg = /fetch|network|load failed/i.test(e.message) ? "Keine Verbindung zum Server – Internet prüfen und oben auf Aktualisieren tippen." : e.message;
+  for (const id of ["queue", "newest", "wkBody"]) { const el = $(id); if (el && el.querySelector(".sk")) el.innerHTML = `<div class="loadfail">${esc(msg)}</div>`; }
+}
+async function connectWith(token, url) {
+  const old = cfg; cfg = { url: (url || cfg.url).replace(/\/+$/, ""), token: String(token || "").trim() };
+  try { await api("stats"); } catch (e) { cfg = old; throw e; }
+  store.set("tc_url", cfg.url); store.set("tc_token", cfg.token);
+}
+function openSetup(msg) { $("suMsg").textContent = msg || ""; $("setupOv").classList.add("show"); }
+$("suGo").addEventListener("click", async () => {
+  const t = $("suTok").value.trim(); if (!t) { $("suMsg").textContent = "Bitte den Schlüssel eintragen."; return; }
+  $("suGo").disabled = true; $("suMsg").innerHTML = `<span class="spin"></span>Wird geprüft …`;
+  try { await connectWith(t); $("setupOv").classList.remove("show"); toast("Verbunden"); loadAll(); }
+  catch (e) { $("suMsg").textContent = /berechtigt/i.test(e.message) ? "Der Schlüssel passt nicht. Bitte genau so eintragen wie am PC." : e.message; }
+  $("suGo").disabled = false;
+});
+$("suPaste").addEventListener("click", async () => { try { $("suTok").value = (await navigator.clipboard.readText()).trim(); } catch { $("suTok").focus(); } });
+$("suMore").addEventListener("click", () => { $("setupOv").classList.remove("show"); openSettings(); });
+function showQr() {
+  const base = location.protocol === "https:" ? location.origin + location.pathname : PAGES_URL;
+  const link = `${base}#k=${encodeURIComponent(cfg.token)}&u=${encodeURIComponent(cfg.url)}`;
+  $("qrBox").innerHTML = `<span class="spin"></span>`; $("qrOv").classList.add("show");
+  const draw = () => { $("qrBox").innerHTML = ""; new QRCode($("qrBox"), { text: link, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M }); };
+  if (window.QRCode) return draw();
+  const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+  sc.onload = draw; sc.onerror = () => { $("qrBox").innerHTML = `<div class="hintline">QR-Code konnte nicht geladen werden.</div>`; };
+  document.head.appendChild(sc);
+}
+$("hsCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText(cfg.token); $("hsCopied").textContent = "kopiert"; } catch { $("hsCopied").textContent = "ging nicht – Schlüssel dann von Hand eintragen"; } });
+$("hsClose").addEventListener("click", () => $("hsOv").classList.remove("show"));
+$("qrClose").addEventListener("click", () => $("qrOv").classList.remove("show"));
 setDate();
-if (configured()) loadAll(); else openSettings();
+(async () => {
+  // Link aus dem QR-Code: #k=Schlüssel&u=Adresse
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("k")) {
+    history.replaceState(null, "", location.pathname + location.search);
+    try { await connectWith(h.get("k"), h.get("u") || undefined); toast("Verbunden"); }
+    catch (e) { openSetup("Verbindung mit dem QR-Code hat nicht geklappt: " + e.message); return; }
+    if (/iphone|ipad|android/i.test(navigator.userAgent) && !(navigator.standalone || matchMedia("(display-mode: standalone)").matches)) $("hsOv").classList.add("show");
+  }
+  if (configured()) loadAll(); else openSetup();
+})();
 </script>
 </body>
 </html>
