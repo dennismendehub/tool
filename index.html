@@ -241,7 +241,7 @@
   details.more summary{cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink2);padding:10px 0}
   .ptbox.hirebox{background:var(--blue-tint)} .ptbox.hirebox b{color:var(--blue-ink)}
   @media (max-width:1180px){#vPipe.on,#vOver.on{grid-template-columns:minmax(0,1fr)}}
-  @media (max-width:560px){.minikpis{grid-template-columns:repeat(2,minmax(0,1fr))}.prow .dt{width:72px}.ovkpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.okpi .v{font-size:25px}.ovhead h1{font-size:28px}.donut svg{width:130px;height:130px}}
+  @media (max-width:560px){.minikpis{grid-template-columns:repeat(2,minmax(0,1fr))}.prow .dt{width:72px}.srow{flex-wrap:wrap;row-gap:6px}.srow .nm{flex:1 1 100%}.srow .pick{max-width:100%;overflow-x:auto}.prow{flex-wrap:wrap;row-gap:6px}.prow .r{flex-basis:100%;padding-left:84px;flex-wrap:wrap}.prow .mid b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ovkpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.okpi .v{font-size:25px}.okpi .l{white-space:normal;align-items:flex-start;line-height:1.25;min-height:2.5em}.okpi .l::before{margin-top:4px}.okpi .s{white-space:normal;line-height:1.3}.okpi{padding:13px 14px 9px}.ovhead h1{font-size:28px}.donut svg{width:130px;height:130px}}
   .col{display:flex;flex-direction:column;gap:18px;min-width:0}
   .panel{border-radius:24px;padding:18px 20px}
   .ph{display:flex;align-items:baseline;gap:4px 10px;margin:0 0 12px;flex-wrap:wrap}
@@ -494,12 +494,16 @@
   .report .when{font-size:12.5px;color:var(--muted);margin-bottom:6px}
 
   /* Fenster & Blätter */
-  .ov{position:fixed;inset:0;background:rgba(20,24,36,.28);display:none;z-index:40;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .ov{position:fixed;inset:0;background:rgba(20,24,36,.28);display:none;z-index:80;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
   .ov.show{display:flex}
-  .ov.center{align-items:center;justify-content:center;padding:16px}
+  .ov.center{align-items:center;justify-content:center;padding:16px;padding-top:max(16px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  body:has(.ov.show) .tabbar,body:has(.ov.show) .mbar{display:none!important}
+  .modal-body{-webkit-overflow-scrolling:touch;overscroll-behavior:contain;flex:1 1 auto;min-height:0}
+  .modal-head,.modal-foot{flex-shrink:0}
+  .modal>div:not(.modal-head):not(.modal-foot):not(.modal-body):not([hidden]){display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
   .ov.show .modal{animation:pop .22s cubic-bezier(.2,.9,.25,1.15)}
   @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
-  .modal{background:rgba(248,248,250,.8);border-radius:26px;width:100%;max-width:620px;overflow:hidden;max-height:calc(100vh - 32px);display:flex;flex-direction:column;box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 30px 80px -20px rgba(10,20,40,.45)}
+  .modal{background:rgba(248,248,250,.8);border-radius:26px;width:100%;max-width:620px;overflow:hidden;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));display:flex;flex-direction:column;box-shadow:0 0 0 .5px rgba(0,0,0,.08),0 30px 80px -20px rgba(10,20,40,.45)}
   .modal-head{padding:20px 24px 6px;display:flex;align-items:center;gap:14px}
   .modal-head .t{flex:1}
   .modal-head .t b{display:block;font-family:var(--disp);font-size:20px;letter-spacing:-.02em}
@@ -515,7 +519,7 @@
   .f label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
   .f .full{grid-column:1/-1}
   .modal-foot{display:flex;gap:8px;justify-content:flex-end;padding:18px 24px 22px;flex-wrap:wrap}
-  .ov.side{justify-content:flex-end;padding:12px}
+  .ov.side{justify-content:flex-end;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
   .drawer{background:rgba(242,242,247,.82);width:min(680px,100%);height:100%;display:flex;flex-direction:column;border-radius:26px;overflow:hidden;animation:slide .26s cubic-bezier(.2,.9,.25,1)}
   @keyframes slide{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
   .drawer-head{padding:20px 22px 12px 26px;display:flex;align-items:center;gap:12px}
@@ -1921,7 +1925,7 @@ function renderItems() {
       const over = i.faellig && i.faellig < today && i.status !== "erledigt";
       const due = i.faellig ? `<span class="${over ? "over" : ""}">${over ? "überfällig seit" : "fällig"} ${shortDate(i.faellig)}</span>` : "";
       return `<div class="item ${i.status === "prio" ? "prio" : ""} ${i.status === "erledigt" ? "done" : ""} ${fresh.has(i.id) ? "fresh" : ""}" data-id="${i.id}"><span class="flag"></span>
-        <div class="body"><div class="tt">${esc(i.titel)}</div><div class="mt">${i.bezug ? `<span>${esc(i.bezug)}</span>` : ""}${due}<span>notiert ${new Date(i.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span></div>${i.details ? `<div class="dt">${esc(i.details)}</div>` : ""}</div>
+        <div class="body"><div class="tt">${esc(i.titel)}</div><div class="mt">${i.bezug ? `<span>${esc(i.bezug)}</span>` : ""}${due}${i.created_at ? `<span>notiert ${new Date(i.created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}</span>` : ""}</div>${i.details ? `<div class="dt">${esc(i.details)}</div>` : ""}</div>
         <div class="acts"><button title="${i.status === "prio" ? "Prio entfernen" : "Mit Prio markieren"}" data-s="${i.status === "prio" ? "offen" : "prio"}" class="${i.status === "prio" ? "on-p" : ""}">${ICON.prio}</button>
         <button title="${i.status === "erledigt" ? "Wieder öffnen" : "Als erledigt markieren"}" data-s="${i.status === "erledigt" ? "offen" : "erledigt"}" class="${i.status === "erledigt" ? "on-e" : ""}">${ICON.done}</button>
         <button title="Löschen" data-del="1" class="del">${ICON.del}</button></div></div>`;
@@ -3037,7 +3041,7 @@ function openTermin(t) {
   $("tmHint").textContent = t.lead_id ? "Nach dem Speichern kannst du dem Bewerber die Bestätigung per WhatsApp oder E-Mail schicken." : "Ohne Datum gilt der Termin als „in Abstimmung“.";
   $("tmForm").hidden = false; $("tmDone").hidden = true;
   tmSync(!t.id); if (t.id && t.lead_id) { $("tmSetSt").checked = false; $("tmDescTxt").textContent = "„" + tmLine() + "“"; }
-  $("tmOv").classList.add("show"); setTimeout(() => (t.name ? $("tmDate") : $("tmName")).focus(), 30);
+  $("tmOv").classList.add("show"); if (!matchMedia("(pointer:coarse)").matches) setTimeout(() => (t.name ? $("tmDate") : $("tmName")).focus(), 30);
   if (t.lead_id) tmLead();
 }
 function closeTermin() { $("tmOv").classList.remove("show"); tmEdit = null; }
