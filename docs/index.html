@@ -2110,7 +2110,7 @@ function renderSettings() {
     h += `<div class="ssec"><h3>Kategorien für Gedanken</h3><div id="katList">${S.kategorien.map((k) => `<div class="kat" data-key="${esc(k.key)}"><input class="inp" value="${esc(k.label)}"><button type="button" class="rm" aria-label="Entfernen">✕</button></div>`).join("")}</div><button class="btn sm" id="katAdd" type="button">Kategorie hinzufügen</button></div>`;
     h += `<div class="ssec"><h3>Das weiß Claude über dich</h3><textarea class="inp" id="ctx" style="min-height:110px">${esc(S.kontext)}</textarea></div>`;
   }
-  h += `<div class="ssec"><h3>Verbindung</h3><p class="ex">Wird nur auf diesem Gerät gespeichert.</p><div class="f"><label class="full">Supabase Projekt-URL<input class="inp" id="sUrl" value="${esc(cfg.url)}"></label><label class="full">Dashboard-Schlüssel<input class="inp" id="sTok" type="password" value="${esc(cfg.token)}"></label></div>
+  h += `<div class="ssec"><h3>Verbindung</h3><p class="ex">Wird nur auf diesem Gerät gespeichert.</p><div class="f"><label class="full">Supabase Projekt-URL<input class="inp" id="sUrl" value="${esc(cfg.url)}"></label><label class="full">Dashboard-Schlüssel<span class="row" style="gap:6px"><input class="inp" id="sTok" type="password" value="${esc(cfg.token)}" style="flex:1"><button class="btn sm" id="sTokShow" type="button">anzeigen</button><button class="btn sm" id="sTokCopy" type="button">kopieren</button></span></label></div>
     ${configured() ? `<button class="btn sm" id="qrBtn" type="button" style="margin-top:10px">Aufs Handy übertragen (QR-Code)</button>` : ""}</div>`;
   $("setBody").innerHTML = h;
   if (!S) return;
@@ -2129,6 +2129,8 @@ function renderSettings() {
     catch (e) { $("pushInfo").textContent = e.message; } finally { $("pushTest").disabled = false; }
   });
   if ($("qrBtn")) $("qrBtn").addEventListener("click", showQr);
+  $("sTokShow").addEventListener("click", () => { const i = $("sTok"); i.type = i.type === "password" ? "text" : "password"; $("sTokShow").textContent = i.type === "password" ? "anzeigen" : "verbergen"; });
+  $("sTokCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("sTok").value.trim()); toast("Schlüssel kopiert"); } catch { toast("Kopieren ging nicht – bitte „anzeigen“ und von Hand kopieren", true); } });
   $("syncBtn").addEventListener("click", async () => {
     $("syncBtn").disabled = true; $("syncInfo").innerHTML = `<span class="spin"></span>läuft, etwa eine Minute …`;
     try { const r = await api("sync_leads"); $("syncInfo").textContent = `${r.leads} Bewerber aus ${r.kampagnen} Kampagnen abgeglichen.`; loadWork(); }
