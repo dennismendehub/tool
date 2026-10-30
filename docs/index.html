@@ -492,6 +492,14 @@
   .fu{flex-wrap:wrap}
   .fuact{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:var(--ink2)}
   .fuact span{flex:1 1 200px}
+  .sechead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:6px 2px -4px}
+  .sechead b{font-family:var(--round);font-size:17px;padding-left:10px;border-left:4px solid var(--c,var(--ink2))}
+  .sechead span{font-size:12.5px;color:var(--muted)}
+  .sechead .btn{margin-left:auto}
+  .bersecs{display:flex;flex-direction:column;gap:14px}
+  .ovkpis.ber{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .gesz{display:block;width:100%;font-size:11.5px;color:var(--muted);margin-top:2px}
+  @media (max-width:560px){.ovkpis.ber{grid-template-columns:repeat(2,minmax(0,1fr))}.sechead .btn{margin-left:0}}
   .bergrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .bercard{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--shadow);border-radius:22px;padding:15px 17px 12px;min-width:0;border-top:3px solid var(--c)}
   .bercard .bh{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
@@ -846,7 +854,7 @@
 </div>
 <section class="kpiwrap">
   <div class="kpis">
-    <div class="kpi"><div class="l">Neue Bewerber heute</div><div class="v" id="kNeu">–</div><div class="s">aus allen Ihro-Kampagnen</div></div>
+    <div class="kpi"><div class="l">Neue Bewerber heute</div><div class="v" id="kNeu">–</div><div class="s" id="kNeuS">aus allen Ihro-Kampagnen</div></div>
     <div class="kpi ringk"><div class="l">Anrufversuche heute</div><div class="v" id="kAnr">–</div><div class="s" id="kAnrS"></div>
       <svg class="ring" viewBox="0 0 70 70" aria-hidden="true"><defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF2D55"/><stop offset="1" stop-color="#FF9F0A"/></linearGradient></defs><circle class="trk" cx="35" cy="35" r="29"/><circle class="prg" id="kRing" cx="35" cy="35" r="29" transform="rotate(-90 35 35)" stroke-dasharray="182.2" stroke-dashoffset="182.2"/></svg>
       <div class="meter ghost"><i id="kGoal"></i></div></div>
@@ -944,8 +952,9 @@
     <div class="rt"><div class="seg big" id="ovSeg"><button data-m="tag">Tag</button><button data-m="woche">Woche</button></div>
       <button class="bbtn icon" id="ovRefresh" title="Werbekosten jetzt neu abrufen" aria-label="Werbekosten neu abrufen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
   </section>
+  <div class="sechead full" id="ovGesHead"><b>Gesamt</b><span>alle Bereiche – Ihro, Transa und HeyRecruit</span></div>
   <section class="ovkpis full" id="ovKpis"></section>
-  <section class="bergrid full" id="ovBer"></section>
+  <div class="full bersecs" id="ovBer"></div>
   <section class="panel full wkpanel" id="ovWeek">
     <div class="ph"><h2 id="wkTitle">Diese Woche</h2><span class="note" id="wkNote"></span></div>
     <div class="wkgrid" id="wkBody"><div><div class="sk"><i></i><i></i><i></i></div></div><div><div class="sk"><i></i><i></i><i></i></div></div><div><div class="sk"><i></i><i></i><i></i></div></div></div>
@@ -1181,13 +1190,13 @@ function toast(msg, err) {
 }
 async function api(action, data = {}) {
   if (!configured()) throw new Error("Nicht eingerichtet");
-  const fn = /^(item_edit|speicher|sicherung|sync_leads|wiedervorlagen|overview_getrennt)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
+  const fn = /^(item_edit|speicher|sicherung|sync_leads|wiedervorlagen|overview_getrennt|heute_bereiche)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
   const url = cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, opt = {
     method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": cfg.token }, body: JSON.stringify({ action, ...data }),
   };
   // Am Handy reißt die Verbindung kurz ab (Funkloch, Wechsel LTE/5G/WLAN, App aus dem Hintergrund) – Safari meldet dann „Load failed“.
   // Lesende Abfragen werden still wiederholt, beim Speichern kommt eine verständliche Meldung.
-  const lesend = /^(work|stats|overview|overview_getrennt|woche|speicher|sicherung|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
+  const lesend = /^(work|stats|overview|overview_getrennt|heute_bereiche|woche|speicher|sicherung|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
   let r;
   for (let i = 0; ; i++) {
     try { r = await fetch(url, opt); break; }
@@ -1270,7 +1279,8 @@ $("tabbar").addEventListener("click", (e) => { const b = e.target.closest("butto
 let tagesziel = 0;
 async function loadStats() {
   try {
-    const d = await api("stats");
+    const [d, hb] = await Promise.all([api("stats"), api("heute_bereiche").catch(() => null)]);
+    HB = hb && hb.gesamt ? hb : null; STATS = d;
     const t = d.total; tagesziel = d.tagesziel || 0;
     $("kNeu").textContent = t.neu;
     $("kAnr").innerHTML = tagesziel ? `${t.anrufe}<small>/${tagesziel}</small>` : t.anrufe;
@@ -1280,6 +1290,7 @@ async function loadStats() {
     const q = pct(t);
     $("kQuote").innerHTML = q === null ? "–" : `${q}<small>%</small>`;
     $("kMeter").style.width = (q || 0) + "%";
+    renderKpiBer();
     $("kOff").textContent = d.punkte.offen;
     $("kOffS").textContent = d.punkte.prio ? `davon ${d.punkte.prio} mit Prio` : "keine mit Prio";
 
@@ -1295,6 +1306,22 @@ async function loadStats() {
       : `<div class="empty">Noch keine.</div>`;
     $("stand").textContent = "Stand " + new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
   } catch (e) { if (e.message !== "Nicht eingerichtet") { toast(e.message, true); loadFail(e); } }
+}
+
+// Kacheln „Neue Bewerber / Anrufversuche / Quote“ für den gewählten Bereich (Ihro, Transa, HeyRecruit)
+let HB = null, STATS = null;
+function renderKpiBer() {
+  if (!STATS || typeof BER === "undefined") return;
+  const g = HB ? HB.gesamt : STATS.total, t = HB ? HB[BER] : STATS.total;
+  $("kNeu").textContent = t.neu;
+  $("kNeuS").textContent = BER === "ihro" ? "aus den Ihro-Kampagnen" : BER === "transa" ? "Transa-Kampagnen" : "HeyRecruit";
+  $("kAnr").innerHTML = BER === "ihro" && tagesziel ? `${t.anrufe}<small>/${tagesziel}</small>` : t.anrufe;
+  { const C = 182.2, f = tagesziel ? Math.min(1, g.anrufe / tagesziel) : 0; $("kRing").setAttribute("stroke-dashoffset", String(C * (1 - f))); $("kRing").closest("svg").style.display = tagesziel ? "" : "none"; $("kRing").closest("svg").setAttribute("title", `alle Bereiche: ${g.anrufe} von ${tagesziel}`); }
+  $("kAnrS").innerHTML = `<span class="dot go"><span>${t.erreicht} erreicht</span></span><span class="dot stop"><span>${t.nicht} nicht</span></span><span class="dot beacon"><span>${t.rueckruf} Rückruf</span></span>` +
+    (HB && (g.anrufe !== t.anrufe) ? `<span class="gesz">alle Bereiche: ${g.anrufe}${tagesziel ? "/" + tagesziel : ""}</span>` : "");
+  const q = pct(t);
+  $("kQuote").innerHTML = q === null ? "–" : `${q}<small>%</small>`;
+  $("kMeter").style.width = (q || 0) + "%";
 }
 
 // ---------- Arbeiten ----------
@@ -1417,6 +1444,7 @@ function applyBereich() {
   $("bcI").textContent = ni || ""; $("bcT").textContent = nt || ""; $("bcH").textContent = nh || "";
   $("berSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.b === BER));
   document.body.dataset.ber = BER;
+  renderKpiBer();
   if (typeof OV !== "undefined" && OV && OV.bereiche) renderBereiche();
 }
 function setBereich(b) {
@@ -1740,7 +1768,7 @@ async function loadWoche() {
 function renderWoche(w) {
   const montag = new Date().getDay() === 1, t0 = todayISO();
   $("ovWeek").classList.toggle("monday", montag);
-  if (montag) $("ovKpis").before($("ovWeek")); else $("ovKpis").after($("ovWeek"));
+  if (montag) $("ovGesHead").before($("ovWeek")); else $("ovBer").after($("ovWeek"));
   $("wkTitle").textContent = (montag ? "Montags-Vorschau" : "Diese Woche") + ` · KW ${w.kw}`;
   $("wkNote").textContent = `${shortDate(w.von)}–${shortDate(w.bis)}`;
   const byDay = new Map(); for (const t of w.termine) { if (!byDay.has(t.datum)) byDay.set(t.datum, []); byDay.get(t.datum).push(t); }
@@ -3417,35 +3445,35 @@ const avgCpb = (R) => { const s = R.reduce((a, x) => a + (x.social || 0), 0), k 
 // Transa und HeyRecruit: eigene Karten mit Bewerbungen, Anrufversuchen und Kosten (verfälschen die Ihro-Zahlen nicht)
 function renderBereiche() {
   if (!OV) return;
-  const wk = OV.modus === "woche", prevL = wk ? "Vorwoche" : "gestern";
+  const wk = OV.modus === "woche", prevL = wk ? "Vorwoche" : "gestern", zr = wk ? "8 Wochen" : "14 Tage";
   const B = OV.bereiche; if (!B) { $("ovBer").innerHTML = ""; return; }
-  const zr = wk ? "8 Wochen" : "14 Tage", jetzt = wk ? "diese Woche" : "heute";
   const offen = (b) => WALL ? (WALL.arbeitsliste || []).filter((l) => berL(l) === b).length : null;
-  const card = (b, titel, sub, farbe) => {
-    const R = B[b] || [], c = R[R.length - 1] || {}, p = R[R.length - 2] || {};
-    const sum = (f) => R.reduce((a, x) => a + (x[f] || 0), 0), S = sum("social"), K = sum("kosten"), V = sum("versuche"), E = sum("erreicht");
-    const cpbC = c.social && c.kosten ? c.kosten / c.social : null, avg = avgCpb(R), o = offen(b);
-    const camps = [...(OV.kampagnen || []).filter((k) => bereichOf(k.kampagne) === b).map((k) => `<span>${esc(k.kampagne)}: ${k.neu} neu · ${k.anrufe} Anrufe</span>`),
-      ...(OV.kosten_kampagnen || []).filter((k) => bereichOf(k.name) === b).map((k) => `<span>${esc(k.name)}: ${eur(k.kosten, 2)}</span>`)];
-    const stat = (l, v, s2) => `<div class="bs"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s2}</div></div>`;
-    return `<div class="bercard" style="--c:${farbe}">
-      <div class="bh"><div><b>${titel}</b><span>${sub}</span></div><button class="btn sm" data-goto="${b}">${o ? o + " anzurufen" : "Bewerber"} →</button></div>
-      <div class="bstats">
-        ${stat(`Bewerbungen ${jetzt}`, c.social || 0, `${prevL}: ${p.social || 0} · ${zr}: ${S}`)}
-        ${stat(`Anrufversuche ${jetzt}`, c.versuche || 0, c.versuche ? `${c.erreicht} erreicht · ${Math.round(100 * c.erreicht / c.versuche)} %` : `${zr}: ${V}${V ? ` · ${Math.round(100 * E / V)} % erreicht` : ""}`)}
-        ${b === "heyrecruit" ? stat("Werbekosten", "–", "laufen nicht über Meta") : stat(`Werbekosten ${jetzt}`, eur(c.kosten), `${zr}: ${eur(K)}`)}
-        ${b === "heyrecruit" ? stat("Kosten je Bewerbung", "–", "kein Meta-Budget") : stat("Kosten je Bewerbung", eur(cpbC), `Ø ${zr}: ${eur(avg)}`)}
-      </div>
-      ${spark(R.map((x) => x.social), farbe)}
-      ${camps.length ? `<div class="bcamps">${camps.join("")}</div>` : ""}
-    </div>`;
+  const reihe = (b, titel, sub, farbe, R, mitKosten) => {
+    const c = R[R.length - 1] || {}, p = R[R.length - 2] || {}, cpb = (x) => (x.social && x.kosten ? x.kosten / x.social : null);
+    const V = R.reduce((a, x) => a + (x.versuche || 0), 0), E = R.reduce((a, x) => a + (x.erreicht || 0), 0), S = R.reduce((a, x) => a + (x.social || 0), 0), K = R.reduce((a, x) => a + (x.kosten || 0), 0);
+    const o = offen(b);
+    const tile = (l, v, s2, vals, col) => `<div class="okpi" style="--c:${col}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s2}</div>${vals ? spark(vals, col) : ""}</div>`;
+    return `<div class="sechead full" style="--c:${farbe}"><b>${titel}</b><span>${sub}</span><button class="btn sm" data-goto="${b}">${o ? o + " anzurufen" : "zu den Bewerbern"} →</button></div>
+      <section class="ovkpis ber full">
+        ${tile("Bewerbungen", c.social || 0, `${prevL}: ${p.social || 0} · ${zr}: ${S}`, R.map((x) => x.social), farbe)}
+        ${tile("Anrufversuche", c.versuche || 0, c.versuche ? `${c.erreicht} erreicht · ${Math.round(100 * c.erreicht / c.versuche)} %` : `${zr}: ${V}${V ? ` · ${Math.round(100 * E / V)} % erreicht` : ""}`, R.map((x) => x.versuche), "var(--blue)")}
+        ${mitKosten ? tile("Werbekosten", eur(c.kosten), `${prevL}: ${eur(p.kosten)} · ${zr}: ${eur(K)}`, R.map((x) => x.kosten), "var(--c-cost)") : tile("Werbekosten", "–", "läuft nicht über Meta", null, "var(--c-cost)")}
+        ${mitKosten ? tile("Kosten je Bewerbung", eur(cpb(c)), `Ø ${zr}: ${eur(avgCpb(R))} · ${prevL}: ${eur(cpb(p))}`, R.map(cpb), "#FF6B3D") : tile("Kosten je Bewerbung", "–", "kein Meta-Budget", null, "#FF6B3D")}
+      </section>`;
   };
-  $("ovBer").innerHTML = card("transa", "Transa", "über Talentjagd · Meta-Kampagnen „Transa …“", "#AF52DE") + card("heyrecruit", "HeyRecruit", "eigene LeadTable-Kampagne", "#14B8A6");
+  $("ovBer").innerHTML = reihe("ihro", "Social Media Ihro", "eigene Meta-Kampagnen", "var(--c-social)", OV.reihe, true)
+    + reihe("transa", "Social Media Transa", "über Talentjagd · Meta-Kampagnen „Transa …“", "#AF52DE", B.transa || [], true)
+    + reihe("heyrecruit", "HeyRecruit", "eigene LeadTable-Kampagne", "#14B8A6", B.heyrecruit || [], false);
 }
 $("ovBer").addEventListener("click", (e) => { const b = e.target.closest("[data-goto]"); if (!b) return; setBereich(b.dataset.goto); showView("vWork"); $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === "vWork" && (x.dataset.b || "ihro") === BER)); });
+// Gesamtreihe: alle Bereiche zusammen (Social Media inkl. „T_Transa Allgemein“)
+function ovGesamt() {
+  if (!OV.gesamt || !OV.bereiche) return OV.reihe;
+  return OV.gesamt.map((x, i) => ({ ...x, social: (OV.reihe[i]?.social || 0) + Object.values(OV.bereiche).reduce((a, s2) => a + (s2[i]?.social || 0), 0) }));
+}
 function renderOverview(anim) {
   if (!OV) return;
-  const R = OV.reihe, n = R.length, c = R[n - 1], p = R[n - 2] || {}, wk = OV.modus === "woche";
+  const R = ovGesamt(), n = R.length, c = R[n - 1], p = R[n - 2] || {}, wk = OV.modus === "woche";
   $("ovSeg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === OV.modus));
   $("ovTitle").textContent = wk ? "Diese Woche" : "Heute";
   $("ovSub").textContent = ovLong(c);
@@ -3480,7 +3508,7 @@ function renderOverview(anim) {
     tip: (i) => `<b>${ovLong(R[i])}</b>${tipRow("#FF9F0A", "Werbekosten", eur(R[i].kosten, 2))}${tipRow("var(--c-social)", "Social-Bewerbungen", R[i].social)}${tipRow("#FF6B3D", "je Bewerbung", eur(cpb(R[i]), 2))}` });
   const sum = R.reduce((a, x) => a + x.kosten, 0);
   $("ovCostNote").textContent = OV.meta_fehler ? "" : `${wk ? "8 Wochen" : "14 Tage"} zusammen ${eur(sum)}${!wk ? " · heute läuft noch, Meta bucht mit etwas Verzögerung" : ""}`;
-  const K = (OV.kosten_kampagnen || []).filter((k) => !OV.bereiche || bereichOf(k.name) === "ihro"), km = Math.max(1, ...K.map((k) => k.kosten));
+  const K = OV.kosten_kampagnen || [], km = Math.max(1, ...K.map((k) => k.kosten));
   $("ovCostKNote").textContent = wk ? "diese Woche" : "heute";
   $("ovCostK").innerHTML = K.length ? K.slice(0, 10).map((k, i) => `<div class="r"><span title="${esc(k.name)}">${esc(k.name)}</span><b>${eur(k.kosten, 2)}</b><div class="t"><i style="width:${100 * k.kosten / km}%;animation-delay:${i * 40}ms"></i></div></div>`).join("")
     : `<div class="empty">${OV.meta_fehler ? "Nicht abrufbar." : "Noch keine Ausgaben."}</div>`;
@@ -3489,7 +3517,7 @@ function renderOverview(anim) {
   $("ovTryNote").textContent = OV.anrufversuche_seit ? `erfasst seit ${shortDate(OV.anrufversuche_seit)}` : "";
   $("campTitle").textContent = wk ? "Kampagnen diese Woche" : "Kampagnen heute";
   const z = (v) => `<td class="num ${v ? "" : "zero"}">${v}</td>`;
-  const KA = OV.kampagnen.filter((k) => !OV.bereiche || bereichOf(k.kampagne) === "ihro");
+  const KA = OV.kampagnen || [];
   $("campBody").innerHTML = KA.length ? KA.map((k) => {
     const s2 = k.erreicht + k.nicht + k.rueckruf, w = (v) => s2 ? 100 * v / s2 : 0, kq = pct(k);
     return `<tr><td class="name">${esc(k.kampagne)}</td>${z(k.neu)}${z(k.anrufe)}
