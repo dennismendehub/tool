@@ -1153,9 +1153,20 @@ function toast(msg, err) {
 async function api(action, data = {}) {
   if (!configured()) throw new Error("Nicht eingerichtet");
   const fn = action === "item_edit" ? "items-edit" : "dashboard-api"; // Bearbeiten von Notizen läuft über eine eigene kleine Funktion
-  const r = await fetch(cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, {
+  const url = cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, opt = {
     method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": cfg.token }, body: JSON.stringify({ action, ...data }),
-  });
+  };
+  // Am Handy reißt die Verbindung kurz ab (Funkloch, Wechsel LTE/5G/WLAN, App aus dem Hintergrund) – Safari meldet dann „Load failed“.
+  // Lesende Abfragen werden still wiederholt, beim Speichern kommt eine verständliche Meldung.
+  const lesend = /^(work|stats|overview|woche|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
+  let r;
+  for (let i = 0; ; i++) {
+    try { r = await fetch(url, opt); break; }
+    catch (e) {
+      if (lesend && i < 2) { await new Promise((ok) => setTimeout(ok, 700 * (i + 1))); continue; }
+      throw new Error(lesend ? "Keine Verbindung – gleich nochmal versuchen" : "Verbindung kurz weg – bitte prüfen, ob es gespeichert wurde, und ggf. nochmal tippen");
+    }
+  }
   let d = {}; try { d = await r.json(); } catch {}
   if (!r.ok) throw new Error(d.error || "Verbindung fehlgeschlagen (" + r.status + ")");
   return d;
