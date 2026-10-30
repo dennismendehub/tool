@@ -1489,14 +1489,14 @@ $("clearSearch").addEventListener("click", () => { $("q").value = ""; searchRes 
 
 // ---------- Bewerberkarte ----------
 const ST_BEDENK = "Bedenkzeit (nach Telefonat)", ST_NACHGEF = "Nachgefasst";
-const NEUE_STATUS = [ST_BEDENK, ST_NACHGEF, "Termin", "Termin gebucht"]; // in LeadTable am 30.10.2026 ergänzt
+const ST_NFBITTE = "Nachfassen bitte"; // setzt das Cockpit automatisch 7 Tage nach „Bedenkzeit“
+const NEUE_STATUS = [ST_BEDENK, ST_NACHGEF, ST_NFBITTE, "Termin", "Termin gebucht"]; // in LeadTable am 30.10.2026 ergänzt
 const PRIMARY = [ST_BEDENK, ST_NACHGEF, "Tendenz gut", "Tendenz Absage", "Probetag vereinbaren", "Möchte Rückruf"];
-const isBedenk = (s) => norm(s).startsWith("bedenkzeit"), isNachgef = (s) => norm(s) === "nachgefasst";
+const isBedenk = (s) => norm(s).startsWith("bedenkzeit"), isNachgef = (s) => norm(s) === "nachgefasst", isNfBitte = (s) => norm(s) === "nachfassenbitte";
 // Bedenkzeit / Nachgefasst: automatisch Wiedervorlage in 7 Tagen (Werktag, 9 Uhr)
 function in7Tagen() { const d = new Date(); d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0); while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1); return d; }
 function autoFollowup(s) {
   const heute = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
-  if (isBedenk(s)) return { at: in7Tagen().toISOString(), note: `Nachfassen – Bedenkzeit seit ${heute}` };
   if (isNachgef(s)) return { at: in7Tagen().toISOString(), note: `Seit ${heute} nachgefasst, keine Rückmeldung? → Absage durch Bewerber` };
   return null;
 }
@@ -1556,6 +1556,8 @@ function renderCard(r) {
     ${due || l.followup_at ? `<div class="fu" style="margin-top:12px"><b>Wiedervorlage ${when(l.followup_at)}</b>${l.followup_note ? `<span>${esc(l.followup_note)}</span>` : ""}<button class="btn sm quiet" id="fuClear" style="margin-left:auto">entfernen</button>
       ${due && isNachgef(l.status) ? `<div class="fuact"><span>Keine Rückmeldung seit dem Nachfassen.</span><button class="btn sm stop" data-st="Absage durch Bewerber">Absage durch Bewerber</button><button class="btn sm" id="fuPlus7">nochmal 7 Tage warten</button></div>` : ""}
       ${due && isBedenk(l.status) ? `<div class="fuact"><span>Bedenkzeit ist um – jetzt anrufen. Danach „Nachgefasst“ setzen (oder Ergebnis).</span></div>` : ""}</div>` : ""}
+    ${isBedenk(l.status) && l.last_status_change ? `<div class="fu" style="margin-top:12px"><b>Bedenkzeit</b><span>Am ${new Date(new Date(l.last_status_change).getTime() + 7 * 864e5).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" })} setzt das Cockpit automatisch „Nachfassen bitte“ – dann steht ${esc((l.name || "der Bewerber").split(" ")[0])} wieder in „Heute anrufen“.</span></div>` : ""}
+    ${isNfBitte(l.status) ? `<div class="fu" style="margin-top:12px"><b>Nachfassen</b><span>Die Bedenkzeit ist vorbei. Jetzt anrufen und danach „Nachgefasst“ setzen – oder direkt das Ergebnis.</span></div>` : ""}
     <div class="sec"><div class="sechead"><h3>Beschreibung</h3><span class="row" style="gap:12px"><button class="btn sm blue" id="dictOpen">${ICON.mic}Diktieren</button><button class="linkbtn" id="descReload" title="Aktuellen Stand aus LeadTable holen">aus LeadTable neu laden</button></span></div>
       <div class="dict" id="dictBox" hidden>
         <div class="row" style="gap:10px;align-items:flex-start"><button class="mic" id="dictMic" title="Aufnahme starten/stoppen" aria-label="Aufnahme starten oder stoppen">${ICON.mic}</button>
