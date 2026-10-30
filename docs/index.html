@@ -492,6 +492,25 @@
   .fu{flex-wrap:wrap}
   .fuact{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:var(--ink2)}
   .fuact span{flex:1 1 200px}
+  .bergrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .bercard{background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--shadow);border-radius:22px;padding:15px 17px 12px;min-width:0;border-top:3px solid var(--c)}
+  .bercard .bh{display:flex;align-items:flex-start;gap:10px;justify-content:space-between}
+  .bercard .bh b{display:block;font-family:var(--round);font-size:18px}
+  .bercard .bh span{font-size:12.5px;color:var(--muted)}
+  .bstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+  .bs .l{font-size:12px;font-weight:600;color:var(--ink2);line-height:1.25}
+  .bs .v{font-family:var(--round);font-weight:700;font-size:24px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .bs .s{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3}
+  .bercard .spark{display:block;width:100%;height:26px;margin-top:8px;overflow:visible}
+  .bcamps{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}
+  @media (max-width:1100px){.bergrid{grid-template-columns:1fr}}
+  @media (max-width:560px){.bstats{grid-template-columns:repeat(2,minmax(0,1fr))}.bercard .bh{flex-wrap:wrap}}
+  .tabs-top .n.soft{background:var(--blue-tint,rgba(0,122,255,.14));color:var(--blue-ink,#0a58ca)}
+  .tabs-top button.bt{padding:6px 12px}
+  .berseg{display:none;margin-bottom:8px}
+  .berseg i{font-style:normal;font-size:11px;font-weight:700;margin-left:5px;color:var(--muted)}
+  .berseg i:empty{display:none}
+  @media (max-width:720px){.berseg{display:flex}.berseg button{flex:1}}
   .itmerge{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto}
   .f .itmerge label{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid var(--sep);font-weight:500;color:var(--ink);flex-direction:row;cursor:pointer}
   .itmerge input{margin-top:3px;flex:none}
@@ -754,7 +773,9 @@
       <div class="titleblk"><span class="brand">Tagescockpit</span><span class="today" id="date"></span></div>
       <nav class="tabs-top" id="tabs">
         <button class="on" data-v="vOver">Überblick</button>
-        <button data-v="vWork">Arbeiten<span class="n" id="tWork">0</span></button>
+        <button data-v="vWork" data-b="ihro">Arbeiten<span class="n" id="tWork">0</span></button>
+        <button data-v="vWork" data-b="transa" class="bt">Transa<span class="n soft" id="tTransa" hidden></span></button>
+        <button data-v="vWork" data-b="heyrecruit" class="bt">HeyRecruit<span class="n soft" id="tHey" hidden></span></button>
         <button data-v="vMail">Mail-Eingang<span class="n" id="tMail" hidden>0</span></button>
         <button data-v="vPipe">Pipeline<span class="n" id="tPipe" hidden>0</span></button>
         <button data-v="vNotes">Notizen &amp; Berichte</button>
@@ -841,6 +862,7 @@
     <div class="listhead">
       <div class="ph" style="margin:0"><h2 id="listTitle">Heute anrufen</h2><span class="note" id="listNote"></span>
         <span class="act"><button class="btn sm quiet" id="clearSearch" hidden>Suche beenden</button></span></div>
+      <div class="seg berseg" id="berSeg"><button data-b="ihro" class="on">Ihro<i id="bcI"></i></button><button data-b="transa">Transa<i id="bcT"></i></button><button data-b="heyrecruit">HeyRecruit<i id="bcH"></i></button></div>
       <div class="seg" id="qFilter">
         <button class="on" data-f="alle">Alle</button>
         <button data-f="faellig">Wiedervorlage</button>
@@ -923,6 +945,7 @@
       <button class="bbtn icon" id="ovRefresh" title="Werbekosten jetzt neu abrufen" aria-label="Werbekosten neu abrufen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button></div>
   </section>
   <section class="ovkpis full" id="ovKpis"></section>
+  <section class="bergrid full" id="ovBer"></section>
   <section class="panel full wkpanel" id="ovWeek">
     <div class="ph"><h2 id="wkTitle">Diese Woche</h2><span class="note" id="wkNote"></span></div>
     <div class="wkgrid" id="wkBody"><div><div class="sk"><i></i><i></i><i></i></div></div><div><div class="sk"><i></i><i></i><i></i></div></div><div><div class="sk"><i></i><i></i><i></i></div></div></div>
@@ -1158,13 +1181,13 @@ function toast(msg, err) {
 }
 async function api(action, data = {}) {
   if (!configured()) throw new Error("Nicht eingerichtet");
-  const fn = /^(item_edit|speicher|sicherung|sync_leads|wiedervorlagen)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
+  const fn = /^(item_edit|speicher|sicherung|sync_leads|wiedervorlagen|overview_getrennt)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
   const url = cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, opt = {
     method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": cfg.token }, body: JSON.stringify({ action, ...data }),
   };
   // Am Handy reißt die Verbindung kurz ab (Funkloch, Wechsel LTE/5G/WLAN, App aus dem Hintergrund) – Safari meldet dann „Load failed“.
   // Lesende Abfragen werden still wiederholt, beim Speichern kommt eine verständliche Meldung.
-  const lesend = /^(work|stats|overview|woche|speicher|sicherung|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
+  const lesend = /^(work|stats|overview|overview_getrennt|woche|speicher|sicherung|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
   let r;
   for (let i = 0; ; i++) {
     try { r = await fetch(url, opt); break; }
@@ -1222,6 +1245,7 @@ let view = "vOver";
 document.body.dataset.view = view;
 $("tabs").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.v === "vWork" && b.dataset.b && b.dataset.b !== BER) { setBereich(b.dataset.b); if (view === "vWork") return; }
   const same = view === b.dataset.v;
   if (b.dataset.v === "vWork" && same) document.body.classList.remove("mcard");
   $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
@@ -1232,8 +1256,8 @@ $("tabs").addEventListener("click", (e) => {
   if (view === "vPipe" && configured()) loadPipe();
   if (view === "vOver" && configured()) loadOverview();
 });
-function showView(id) { if (view !== id) $("tabs").querySelector(`[data-v="${id}"]`).click(); }
-$("tabbar").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("tabs").querySelector(`[data-v="${b.dataset.v}"]`).click(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+function showView(id) { if (view !== id) $("tabs").querySelector(`[data-v="${id}"]${id === "vWork" ? `[data-b="${BER}"]` : ""}`).click(); }
+$("tabbar").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("tabs").querySelector(`[data-v="${b.dataset.v}"]${b.dataset.v === "vWork" ? `[data-b="${BER}"]` : ""}`).click(); window.scrollTo({ top: 0, behavior: "smooth" }); });
 // Zähler der oberen Reiter in die Tab-Leiste spiegeln
 {
   const sync = () => $("tabbar").querySelectorAll(".n[data-src]").forEach((n) => { const s = $(n.dataset.src); const v = s && !s.hidden && s.textContent !== "0" ? s.textContent : ""; n.textContent = v; n.hidden = !v; });
@@ -1342,7 +1366,7 @@ function filtered() {
 function renderQueue() {
   const L = filtered();
   const pt = !searchRes && qf === "ptplan", base = pt ? (W.probetag_planen || []) : W.arbeitsliste;
-  $("listTitle").textContent = searchRes ? "Suchergebnis" : pt ? "Probetag planen" : "Heute anrufen";
+  $("listTitle").textContent = (searchRes ? "Suchergebnis" : pt ? "Probetag planen" : "Heute anrufen") + (!searchRes && BER !== "ihro" ? " · " + BER_NAME[BER] : "");
   $("listNote").textContent = searchRes ? `${L.length} Treffer` : pt ? `${L.length} offen · älteste zuerst` : `${L.length} von ${W.arbeitsliste.length}`;
   $("clearSearch").hidden = !searchRes;
   $("qFilter").style.display = searchRes ? "none" : "";
@@ -1370,12 +1394,44 @@ async function loadWork() {
     if (!configured()) return;
     // Bedenkzeit/Nachgefasst, die direkt in LeadTable gesetzt wurden: Wiedervorlage nachziehen (höchstens alle 5 Minuten)
     if (!window._wvAt || Date.now() - window._wvAt > 300000) { window._wvAt = Date.now(); try { await api("wiedervorlagen"); } catch {} }
-    W = await api("work");
-    for (const x of NEUE_STATUS) if (!(W.status_liste || []).some((y) => norm(y) === norm(x))) (W.status_liste = W.status_liste || []).push(x);
+    WALL = await api("work");
+    for (const x of NEUE_STATUS) if (!(WALL.status_liste || []).some((y) => norm(y) === norm(x))) (WALL.status_liste = WALL.status_liste || []).push(x);
+    applyBereich(); renderWork();
+  } catch (e) { if (e.message !== "Nicht eingerichtet") toast(e.message, true); }
+}
+// ---------- Bereiche: Ihro / Transa / HeyRecruit ----------
+// Zuordnung über den Kampagnennamen: „Transa“ (z. B. T_Transa Ruhrgebiet) und „HeyRecruit“ laufen getrennt.
+const bereichOf = (c) => /heyrecruit/i.test(c || "") ? "heyrecruit" : /transa/i.test(c || "") ? "transa" : "ihro";
+const berL = (l) => bereichOf(`${(l && l.campaign) || ""} ${(l && l.kampagne) || ""} ${(l && l.meas) || ""}`);
+const BER_NAME = { ihro: "Ihro", transa: "Transa", heyrecruit: "HeyRecruit" };
+let BER = "ihro", WALL = null;
+function applyBereich() {
+  if (!WALL) return;
+  const f = (arr) => (arr || []).filter((x) => berL(x) === BER);
+  W = { ...WALL, arbeitsliste: f(WALL.arbeitsliste), neueste: f(WALL.neueste), probetage: f(WALL.probetage), geplant: f(WALL.geplant),
+    probetag_planen: f(WALL.probetag_planen), probetag_erinnern: f(WALL.probetag_erinnern), termine_nah: (WALL.termine_nah || []).filter((t) => berL(t.lead || t) === BER) };
+  W.arbeitsliste_gesamt = W.arbeitsliste.length;
+  const n = (b) => (WALL.arbeitsliste || []).filter((l) => berL(l) === b).length, ni = n("ihro"), nt = n("transa"), nh = n("heyrecruit");
+  $("tWork").textContent = ni;
+  $("tTransa").textContent = nt; $("tTransa").hidden = !nt; $("tHey").textContent = nh; $("tHey").hidden = !nh;
+  $("bcI").textContent = ni || ""; $("bcT").textContent = nt || ""; $("bcH").textContent = nh || "";
+  $("berSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.b === BER));
+  document.body.dataset.ber = BER;
+  if (typeof OV !== "undefined" && OV && OV.bereiche) renderBereiche();
+}
+function setBereich(b) {
+  if (b === BER) return;
+  BER = b; campF = ""; if (!searchRes) { selId = null; cur = null; document.body.classList.remove("mcard"); }
+  applyBereich(); renderWork();
+  $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === "vWork" && (x.dataset.b || "ihro") === BER));
+  if (!searchRes) $("card").innerHTML = `<div class="placeholder"><b>${BER_NAME[BER]}</b><span>Links einen Bewerber auswählen.</span></div>`;
+}
+$("berSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setBereich(b.dataset.b); });
+function renderWork() {
+  {
     $("kQueue").textContent = W.arbeitsliste_gesamt;
     const ptn = (W.probetag_planen || []).length; $("ptN").textContent = ptn || ""; $("ptN").hidden = !ptn;
     const tfs = tfSplit(); renderTf();
-    $("tWork").textContent = W.arbeitsliste_gesamt;
     const due = W.arbeitsliste.filter((l) => l.followup_at && new Date(l.followup_at) <= new Date()).length;
     const rr = W.arbeitsliste.filter((l) => statusKind(l.status) === "rueckruf").length;
     const neu = W.arbeitsliste.filter((l) => statusKind(l.status) === "neu" && l.lead_created_at);
@@ -1384,7 +1440,7 @@ async function loadWork() {
     $("kQueueS").innerHTML = [oldest !== null ? `<span class="amp ${ampCls(oldest)}" title="längste Wartezeit eines neuen Bewerbers">wartet ${waitLabel(oldest)}</span>` : "",
       due ? `${due} Wiedervorlage` : "", rr ? `${rr} Rückruf` : "", pts ? `${pts} Probetag-Erinnerung` : "", tfs.remind.length ? `${tfs.remind.length} Termin-Erinnerung` : "", tfs.nach.length ? `${tfs.nach.length} nachfassen` : "", ptn ? `${ptn} Probetag planen` : ""].filter(Boolean).join(" · ").replace("</span> · ", "</span> ") || "nichts Dringendes";
     renderQueue(); renderSide();
-  } catch (e) { if (e.message !== "Nicht eingerichtet") toast(e.message, true); }
+  }
 }
 $("qFilter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("qFilter").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); qf = b.dataset.f; renderQueue(); });
 $("campFilter").addEventListener("change", (e) => { campF = e.target.value; renderQueue(); });
@@ -1432,7 +1488,12 @@ async function openLead(id) {
   document.querySelectorAll(".li").forEach((b) => b.classList.toggle("on", b.dataset.id === id));
   showView("vWork");
   $("card").innerHTML = `<div class="skcard"><i class="h"></i><i class="m"></i><div class="row" style="gap:10px;margin:18px 0"><i class="b"></i><i class="b"></i><i class="b"></i></div><i class="t"></i><i class="t s"></i><i class="t"></i></div>`;
-  try { const r = await api("lead_get", { id }); cur = r.lead; renderCard(r); }
+  try {
+    const r = await api("lead_get", { id }); cur = r.lead;
+    const lb = berL(r.lead);
+    if (lb !== BER && WALL) { BER = lb; applyBereich(); renderWork(); $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === "vWork" && (x.dataset.b || "ihro") === BER)); }
+    renderCard(r);
+  }
   catch (e) { $("card").innerHTML = `<div class="placeholder"><b>Konnte nicht geladen werden</b><span>${esc(e.message)}</span></div>`; }
 }
 function renderCard(r) {
@@ -3279,7 +3340,9 @@ async function loadOverview(frisch) {
   loadWoche();
   if (frisch) $("ovRefresh").classList.add("spinning");
   try {
-    const d = await api("overview", { modus: ovMode, frisch: !!frisch });
+    let d;
+    try { d = await api("overview_getrennt", { modus: ovMode, frisch: !!frisch }); } catch (e) { d = null; }
+    if (!d || !Array.isArray(d.reihe)) d = await api("overview", { modus: ovMode, frisch: !!frisch }); // Rückfall: alles zusammen
     const anim = !OV || OV.modus !== d.modus || !!frisch;
     OV = d; renderOverview(anim);
   } catch (e) { if (e.message !== "Nicht eingerichtet") toast(e.message, true); }
@@ -3350,6 +3413,36 @@ function donut(box, parts, anim) {
     <div class="dleg">${parts.map((p) => `<div><i style="background:${p.color}"></i>${p.name}<b>${p.val}</b><small>${total ? Math.round(100 * p.val / total) + " %" : "–"}</small></div>`).join("")}</div></div>`;
   if (anim) requestAnimationFrame(() => requestAnimationFrame(() => box.querySelectorAll(".segc").forEach((c) => { const l = Number(c.dataset.len); c.setAttribute("stroke-dasharray", `${l} ${C - l}`); })));
 }
+const avgCpb = (R) => { const s = R.reduce((a, x) => a + (x.social || 0), 0), k = R.reduce((a, x) => a + (x.kosten || 0), 0); return s && k ? k / s : null; };
+// Transa und HeyRecruit: eigene Karten mit Bewerbungen, Anrufversuchen und Kosten (verfälschen die Ihro-Zahlen nicht)
+function renderBereiche() {
+  if (!OV) return;
+  const wk = OV.modus === "woche", prevL = wk ? "Vorwoche" : "gestern";
+  const B = OV.bereiche; if (!B) { $("ovBer").innerHTML = ""; return; }
+  const zr = wk ? "8 Wochen" : "14 Tage", jetzt = wk ? "diese Woche" : "heute";
+  const offen = (b) => WALL ? (WALL.arbeitsliste || []).filter((l) => berL(l) === b).length : null;
+  const card = (b, titel, sub, farbe) => {
+    const R = B[b] || [], c = R[R.length - 1] || {}, p = R[R.length - 2] || {};
+    const sum = (f) => R.reduce((a, x) => a + (x[f] || 0), 0), S = sum("social"), K = sum("kosten"), V = sum("versuche"), E = sum("erreicht");
+    const cpbC = c.social && c.kosten ? c.kosten / c.social : null, avg = avgCpb(R), o = offen(b);
+    const camps = [...(OV.kampagnen || []).filter((k) => bereichOf(k.kampagne) === b).map((k) => `<span>${esc(k.kampagne)}: ${k.neu} neu · ${k.anrufe} Anrufe</span>`),
+      ...(OV.kosten_kampagnen || []).filter((k) => bereichOf(k.name) === b).map((k) => `<span>${esc(k.name)}: ${eur(k.kosten, 2)}</span>`)];
+    const stat = (l, v, s2) => `<div class="bs"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s2}</div></div>`;
+    return `<div class="bercard" style="--c:${farbe}">
+      <div class="bh"><div><b>${titel}</b><span>${sub}</span></div><button class="btn sm" data-goto="${b}">${o ? o + " anzurufen" : "Bewerber"} →</button></div>
+      <div class="bstats">
+        ${stat(`Bewerbungen ${jetzt}`, c.social || 0, `${prevL}: ${p.social || 0} · ${zr}: ${S}`)}
+        ${stat(`Anrufversuche ${jetzt}`, c.versuche || 0, c.versuche ? `${c.erreicht} erreicht · ${Math.round(100 * c.erreicht / c.versuche)} %` : `${zr}: ${V}${V ? ` · ${Math.round(100 * E / V)} % erreicht` : ""}`)}
+        ${b === "heyrecruit" ? stat("Werbekosten", "–", "laufen nicht über Meta") : stat(`Werbekosten ${jetzt}`, eur(c.kosten), `${zr}: ${eur(K)}`)}
+        ${b === "heyrecruit" ? stat("Kosten je Bewerbung", "–", "kein Meta-Budget") : stat("Kosten je Bewerbung", eur(cpbC), `Ø ${zr}: ${eur(avg)}`)}
+      </div>
+      ${spark(R.map((x) => x.social), farbe)}
+      ${camps.length ? `<div class="bcamps">${camps.join("")}</div>` : ""}
+    </div>`;
+  };
+  $("ovBer").innerHTML = card("transa", "Transa", "über Talentjagd · Meta-Kampagnen „Transa …“", "#AF52DE") + card("heyrecruit", "HeyRecruit", "eigene LeadTable-Kampagne", "#14B8A6");
+}
+$("ovBer").addEventListener("click", (e) => { const b = e.target.closest("[data-goto]"); if (!b) return; setBereich(b.dataset.goto); showView("vWork"); $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === "vWork" && (x.dataset.b || "ihro") === BER)); });
 function renderOverview(anim) {
   if (!OV) return;
   const R = OV.reihe, n = R.length, c = R[n - 1], p = R[n - 2] || {}, wk = OV.modus === "woche";
@@ -3364,11 +3457,12 @@ function renderOverview(anim) {
     ["Eingehende Anrufe", c.anrufe, p.anrufe, "var(--c-call)", R.map((x) => x.anrufe), (v) => Math.round(v ?? 0), `davon Bewerber ${c.anrufe_bew ?? 0} · ${prevL}: ${p.anrufe ?? 0}`],
     ["Anrufversuche", c.versuche, p.versuche, "var(--blue)", R.map((x) => x.versuche), (v) => Math.round(v ?? 0), c.versuche ? `${c.erreicht} erreicht · ${Math.round(100 * c.erreicht / c.versuche)} %` : null],
     ["Werbekosten", OV.meta_fehler ? null : c.kosten, p.kosten, "var(--c-cost)", R.map((x) => x.kosten), (v) => eur(v)],
-    ["Kosten je Bewerbung", OV.meta_fehler ? null : cpb(c), cpb(p), "#FF6B3D", R.map(cpb), (v) => eur(v)],
+    ["Kosten je Bewerbung", OV.meta_fehler ? null : cpb(c), cpb(p), "#FF6B3D", R.map(cpb), (v) => eur(v), avgCpb(R) != null ? `Ø ${wk ? "8 Wochen" : "14 Tage"}: ${eur(avgCpb(R))} · ${prevL}: ${eur(cpb(p))}` : null],
   ];
   $("ovKpis").innerHTML = tiles.map((t, i) => `<div class="okpi" style="--c:${t[3]}"><div class="l">${t[0]}</div><div class="v" data-i="${i}">${t[5](t[1])}</div>
     <div class="s">${t[6] || `${prevL}: ${t[5](t[2])}`}</div>${spark(t[4], t[3])}</div>`).join("");
   if (anim) $("ovKpis").querySelectorAll(".v").forEach((el) => { const t = tiles[Number(el.dataset.i)]; if (t[1] != null) countUp(el, t[1], t[5]); });
+  renderBereiche();
   const labels = R.map(ovLab);
   barChart($("ovIn"), { title: "Bewerbungseingang", anim, stacked: true, showTotal: true, labels, series: [
       { color: "var(--c-social)", vals: R.map((x) => x.social) }, { color: "var(--c-mail)", vals: R.map((x) => x.mail) }, { color: "var(--c-call)", vals: R.map((x) => x.anrufe_neu ?? x.anrufe) }],
@@ -3386,7 +3480,7 @@ function renderOverview(anim) {
     tip: (i) => `<b>${ovLong(R[i])}</b>${tipRow("#FF9F0A", "Werbekosten", eur(R[i].kosten, 2))}${tipRow("var(--c-social)", "Social-Bewerbungen", R[i].social)}${tipRow("#FF6B3D", "je Bewerbung", eur(cpb(R[i]), 2))}` });
   const sum = R.reduce((a, x) => a + x.kosten, 0);
   $("ovCostNote").textContent = OV.meta_fehler ? "" : `${wk ? "8 Wochen" : "14 Tage"} zusammen ${eur(sum)}${!wk ? " · heute läuft noch, Meta bucht mit etwas Verzögerung" : ""}`;
-  const K = OV.kosten_kampagnen || [], km = Math.max(1, ...K.map((k) => k.kosten));
+  const K = (OV.kosten_kampagnen || []).filter((k) => !OV.bereiche || bereichOf(k.name) === "ihro"), km = Math.max(1, ...K.map((k) => k.kosten));
   $("ovCostKNote").textContent = wk ? "diese Woche" : "heute";
   $("ovCostK").innerHTML = K.length ? K.slice(0, 10).map((k, i) => `<div class="r"><span title="${esc(k.name)}">${esc(k.name)}</span><b>${eur(k.kosten, 2)}</b><div class="t"><i style="width:${100 * k.kosten / km}%;animation-delay:${i * 40}ms"></i></div></div>`).join("")
     : `<div class="empty">${OV.meta_fehler ? "Nicht abrufbar." : "Noch keine Ausgaben."}</div>`;
@@ -3395,7 +3489,8 @@ function renderOverview(anim) {
   $("ovTryNote").textContent = OV.anrufversuche_seit ? `erfasst seit ${shortDate(OV.anrufversuche_seit)}` : "";
   $("campTitle").textContent = wk ? "Kampagnen diese Woche" : "Kampagnen heute";
   const z = (v) => `<td class="num ${v ? "" : "zero"}">${v}</td>`;
-  $("campBody").innerHTML = OV.kampagnen.length ? OV.kampagnen.map((k) => {
+  const KA = OV.kampagnen.filter((k) => !OV.bereiche || bereichOf(k.kampagne) === "ihro");
+  $("campBody").innerHTML = KA.length ? KA.map((k) => {
     const s2 = k.erreicht + k.nicht + k.rueckruf, w = (v) => s2 ? 100 * v / s2 : 0, kq = pct(k);
     return `<tr><td class="name">${esc(k.kampagne)}</td>${z(k.neu)}${z(k.anrufe)}
       <td class="split"><div class="stack"><i class="g" style="width:${w(k.erreicht)}%"></i><i class="r" style="width:${w(k.nicht)}%"></i><i class="a" style="width:${w(k.rueckruf)}%"></i></div>
