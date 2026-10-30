@@ -3166,6 +3166,7 @@ $("tmSave").addEventListener("click", async () => {
   $("tmSave").disabled = true; $("tmSave").innerHTML = `<span class="spin"></span>Wird gespeichert …`;
   const done = [], fehler = [];
   try {
+    const tmNeu = !tmEdit.id;
     const r = await api("termin_save", { termin: { id: tmEdit.id, lead_id: tmEdit.lead_id, status: tmEdit.status || "offen", name, art, meas: $("tmMeas").value.trim(),
       datum, uhrzeit: uhr, ort, note: $("tmNote").value.trim() } });
     tmEdit.id = tmEdit.id || r.id; done.push("in der Pipeline");
@@ -3194,6 +3195,12 @@ $("tmSave").addEventListener("click", async () => {
         else if (fu) await api("lead_followup", { id, at: fu.at, note: fu.note });
         if (fu) done.push("Wiedervorlage " + when(fu.at));
       } catch (e) { fehler.push("Status: " + e.message); }
+      // Immer auch als Notiz in den LeadTable-Verlauf
+      try {
+        const nt = $("tmNote").value.trim();
+        await api("lead_note", { id, text: `${tmNeu ? "Termin eingetragen" : "Termin geändert"}: ${tmLine()}${nt ? " – " + nt : ""}${fu ? ` (Wiedervorlage ${when(fu.at)})` : ""}` });
+        done.push("als Notiz in LeadTable");
+      } catch (e) { fehler.push("Notiz: " + e.message); }
       const ld = l || {};
       $("tmDoneHead").textContent = fehler.length ? "Termin gespeichert – mit Hinweis" : "Termin gespeichert";
       $("tmDoneTxt").innerHTML = esc(`${tmLine()}. Eingetragen: ${done.join(", ")}.`) + (fehler.length ? `<br><span style="color:var(--stop-ink)">${esc(fehler.join(" · "))}</span>` : "");
