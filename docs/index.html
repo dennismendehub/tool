@@ -1155,7 +1155,7 @@ function toast(msg, err) {
 }
 async function api(action, data = {}) {
   if (!configured()) throw new Error("Nicht eingerichtet");
-  const fn = /^(item_edit|speicher|sicherung)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
+  const fn = /^(item_edit|speicher|sicherung|sync_leads)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
   const url = cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, opt = {
     method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": cfg.token }, body: JSON.stringify({ action, ...data }),
   };
@@ -2212,7 +2212,7 @@ function renderSettings() {
     h += `<div class="ssec"><h3>Was zählt als Anrufversuch?</h3><p class="ex">Ordne jedem LeadTable-Status zu, wie er in den Zahlen zählt. Gilt auch rückwirkend.</p>
       <div id="stList">${S._statuses.map((st) => { const c = mapNorm[norm(st)] || "keine"; return `<div class="srow" data-st="${esc(st)}"><span class="nm">${esc(st)}</span><span class="pick">${KATS.map(([k, l]) => `<button type="button" data-k="${k}" class="${k} ${c === k ? "on" : ""}">${l}</button>`).join("")}</span></div>`; }).join("")}</div></div>`;
     h += `<div class="ssec"><h3>Kampagnen</h3><p class="ex">Kurze Namen vergeben oder Kampagnen ausblenden.</p>${S._kampagnen.length ? S._kampagnen.map((c) => { const conf = S.kampagnen[c.name] || {}; return `<div class="camp" data-c="${esc(c.name)}"><div class="orig">In LeadTable: ${esc(c.name)}${c.zuletzt ? `, zuletzt aktiv am ${shortDate(c.zuletzt)}` : ""}</div><input class="inp cname" value="${esc(conf.name || "")}" placeholder="${esc(c.name)}"><label class="sw"><input type="checkbox" class="cshow" ${conf.hidden ? "" : "checked"}><i></i>Anzeigen</label></div>`; }).join("") : `<div class="empty">Erscheinen hier, sobald LeadTable Daten geschickt hat.</div>`}</div>`;
-    h += `<div class="ssec"><h3>Bewerber abgleichen</h3><p class="ex">Lädt alle Bewerber der aktiven Ihro-Kampagnen neu aus LeadTable. Normalerweise nicht nötig, weil LeadTable jede Änderung sofort meldet.</p><button class="btn" id="syncBtn" type="button">Jetzt abgleichen</button> <span class="hintline" id="syncInfo"></span></div>`;
+    h += `<div class="ssec"><h3>Bewerber abgleichen</h3><p class="ex">Lädt alle Bewerber der aktiven Ihro-Kampagnen neu aus LeadTable. Nach größeren Aufräumarbeiten in LeadTable (Bewerber gelöscht, archiviert, verschoben, Kampagne archiviert) einmal tippen – dann verschwinden sie auch hier. In LeadTable selbst wird dabei nichts geändert.</p><button class="btn" id="syncBtn" type="button">Jetzt abgleichen</button> <span class="hintline" id="syncInfo"></span></div>`;
     h += `<div class="ssec"><h3>Abendbericht</h3><div class="srow"><span class="nm">Automatisch erstellen</span><label class="sw"><input type="checkbox" id="repOn" ${S.bericht.aktiv ? "checked" : ""}><i></i></label></div>
       <div class="srow"><span class="nm">Uhrzeit</span><select class="inp" id="repHour" style="width:auto">${Array.from({ length: 18 }, (_, i) => i + 6).map((hh) => `<option value="${hh}" ${Number(S.bericht.stunde) === hh ? "selected" : ""}>${String(hh).padStart(2, "0")}:05 Uhr</option>`).join("")}</select></div></div>`;
     h += `<div class="ssec"><h3>Kategorien für Gedanken</h3><div id="katList">${S.kategorien.map((k) => `<div class="kat" data-key="${esc(k.key)}"><input class="inp" value="${esc(k.label)}"><button type="button" class="rm" aria-label="Entfernen">✕</button></div>`).join("")}</div><button class="btn sm" id="katAdd" type="button">Kategorie hinzufügen</button></div>`;
@@ -2242,7 +2242,9 @@ function renderSettings() {
   $("sTokCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("sTok").value.trim()); toast("Schlüssel kopiert"); } catch { toast("Kopieren ging nicht – bitte „anzeigen“ und von Hand kopieren", true); } });
   $("syncBtn").addEventListener("click", async () => {
     $("syncBtn").disabled = true; $("syncInfo").innerHTML = `<span class="spin"></span>läuft, etwa eine Minute …`;
-    try { const r = await api("sync_leads"); $("syncInfo").textContent = `${r.leads} Bewerber aus ${r.kampagnen} Kampagnen abgeglichen.`; loadWork(); }
+    try { const r = await api("sync_leads"); $("syncInfo").textContent = `${r.leads} Bewerber aus ${r.kampagnen} Kampagnen abgeglichen.` +
+      (r.entfernt ? ` ${r.entfernt} in LeadTable gelöschte/archivierte Bewerber aus dem Cockpit genommen: ${r.entfernt_namen.join(", ")}${r.entfernt > r.entfernt_namen.length ? " …" : ""}` : "") +
+      (r.nicht_entfernt ? ` Achtung: ${r.nicht_entfernt} Bewerber fehlen in LeadTable – zur Sicherheit nicht entfernt, bitte Claude fragen.` : ""); loadWork(); }
     catch (e) { $("syncInfo").textContent = e.message; } finally { $("syncBtn").disabled = false; }
   });
 }
