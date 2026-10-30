@@ -486,6 +486,9 @@
   .item .dt{display:none;font-size:14px;margin-top:8px;white-space:pre-wrap;background:var(--fill2);border-radius:10px;padding:8px 10px}
   .item.open .dt{display:block}
   .acts{display:flex;gap:4px;flex:none}
+  .spbar{height:10px;border-radius:99px;background:var(--fill);overflow:hidden;margin:6px 0 2px}
+  .spbar i{display:block;height:100%;width:1%;background:var(--go);border-radius:99px;transition:width .6s}
+  .spbar i.warn{background:var(--stop)}
   .itmerge{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto}
   .f .itmerge label{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid var(--sep);font-weight:500;color:var(--ink);flex-direction:row;cursor:pointer}
   .itmerge input{margin-top:3px;flex:none}
@@ -1152,13 +1155,13 @@ function toast(msg, err) {
 }
 async function api(action, data = {}) {
   if (!configured()) throw new Error("Nicht eingerichtet");
-  const fn = action === "item_edit" ? "items-edit" : "dashboard-api"; // Bearbeiten von Notizen läuft über eine eigene kleine Funktion
+  const fn = /^(item_edit|speicher|sicherung)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
   const url = cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, opt = {
     method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": cfg.token }, body: JSON.stringify({ action, ...data }),
   };
   // Am Handy reißt die Verbindung kurz ab (Funkloch, Wechsel LTE/5G/WLAN, App aus dem Hintergrund) – Safari meldet dann „Load failed“.
   // Lesende Abfragen werden still wiederholt, beim Speichern kommt eine verständliche Meldung.
-  const lesend = /^(work|stats|overview|woche|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
+  const lesend = /^(work|stats|overview|woche|speicher|sicherung|lead_get|lead_history|items_list|mail_list|hires_list|settings_get|reports_latest|search|lead_search)$/.test(action);
   let r;
   for (let i = 0; ; i++) {
     try { r = await fetch(url, opt); break; }
@@ -1995,6 +1998,28 @@ $("items").addEventListener("click", async (ev) => {
     renderItems(); loadStats();
   } catch (e) { toast(e.message, true); }
 });
+async function loadSpeicher() {
+  try {
+    const r = await api("speicher"), pct = Math.max(1, Math.round(r.anteil * 100));
+    $("spFill").style.width = Math.min(100, Math.max(1, r.anteil * 100)) + "%"; $("spFill").classList.toggle("warn", r.warnung);
+    $("spInfo").textContent = `${r.mb.toLocaleString("de-DE")} MB von ${r.limit_mb} MB belegt (${r.anteil < 0.01 ? "unter 1" : pct} %)` +
+      (r.letzte_sicherung ? ` · letzte Sicherung ${new Date(r.letzte_sicherung).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}` : " · noch keine Sicherung");
+  } catch (e) { const el = $("spInfo"); if (el) el.textContent = "Speicherstand gerade nicht abrufbar."; }
+}
+async function saveBackup() {
+  const b = $("bkSave"); b.disabled = true; const t0 = b.textContent; b.textContent = "Wird erstellt …";
+  try {
+    const d = await api("sicherung");
+    const name = `tagescockpit-sicherung-${todayISO()}.json`;
+    const file = new File([JSON.stringify(d)], name, { type: "application/json" });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia("(pointer:coarse)").matches) {
+      try { await navigator.share({ files: [file], title: "Tagescockpit-Sicherung" }); toast("Sicherung bereit"); return; } catch (e) { if (e.name === "AbortError") return; }
+    }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    toast("Sicherung heruntergeladen");
+  } catch (e) { toast(e.message, true); } finally { b.disabled = false; b.textContent = t0; }
+}
 let itCur = null;
 function openItem(id) {
   const it = items.find((i) => i.id === id); if (!it) return; itCur = it;
@@ -2180,6 +2205,9 @@ function renderSettings() {
       <div class="srow"><span class="nm">Bei neuer Bewerbung benachrichtigen</span><label class="sw"><input type="checkbox" id="pushOn" ${S.push_neu !== false ? "checked" : ""}><i></i></label></div>
       <div class="row" style="margin-top:10px"><button class="btn sm blue" id="pushReg" type="button">Auf diesem Gerät aktivieren</button><button class="btn sm" id="pushTest" type="button">Test senden</button></div>
       <p class="hintline" id="pushInfo"></p></div>`;
+    h += `<div class="ssec"><h3>Speicher &amp; Sicherung</h3><p class="ex">Die Datenbank ist im kostenlosen Plan (500 MB). Ab 80 % kommt eine Push-Warnung. Jeden Montag wird automatisch eine Sicherung angelegt (die letzten 8 bleiben). Für eine Kopie außerhalb: hier speichern, z. B. in „Dateien“ oder OneDrive.</p>
+      <div class="spbar"><i id="spFill"></i></div><p class="hintline" id="spInfo">Wird geladen …</p>
+      <div class="row" style="margin-top:8px"><button class="btn sm blue" id="bkSave" type="button">Sicherung speichern</button></div></div>`;
     h += `<div class="ssec"><h3>WhatsApp-Vorlagen</h3><p class="ex">Platzhalter: {vorname} {name} {kampagne}</p><div id="waList">${(S.wa_vorlagen || []).map(tplRow).join("")}</div><button class="btn sm" id="waAdd" type="button">Vorlage hinzufügen</button></div>`;
     h += `<div class="ssec"><h3>Was zählt als Anrufversuch?</h3><p class="ex">Ordne jedem LeadTable-Status zu, wie er in den Zahlen zählt. Gilt auch rückwirkend.</p>
       <div id="stList">${S._statuses.map((st) => { const c = mapNorm[norm(st)] || "keine"; return `<div class="srow" data-st="${esc(st)}"><span class="nm">${esc(st)}</span><span class="pick">${KATS.map(([k, l]) => `<button type="button" data-k="${k}" class="${k} ${c === k ? "on" : ""}">${l}</button>`).join("")}</span></div>`; }).join("")}</div></div>`;
@@ -2203,6 +2231,7 @@ function renderSettings() {
   $("mlAdd").addEventListener("click", () => $("mlFragen").insertAdjacentHTML("beforeend", `<div class="tpl"><div class="top"><input class="inp q-label" placeholder="Kurzname" style="max-width:150px"><input class="inp q-frage" placeholder="Frage an den Bewerber"><button type="button" class="rm" aria-label="Entfernen">✕</button></div><label class="hintline" style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" class="q-std" checked>standardmäßig angehakt</label></div>`));
   pushStatus();
   $("pushReg").addEventListener("click", pushRegister);
+  loadSpeicher(); $("bkSave").addEventListener("click", saveBackup);
   $("pushTest").addEventListener("click", async () => {
     $("pushTest").disabled = true;
     try { const r = await api("push_test"); $("pushInfo").textContent = r.geraete ? `An ${r.gesendet} von ${r.geraete} ${r.geraete === 1 ? "Gerät" : "Geräten"} gesendet.` : "Noch kein Gerät angemeldet."; }
