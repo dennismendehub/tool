@@ -515,10 +515,19 @@
   @media (max-width:560px){.bstats{grid-template-columns:repeat(2,minmax(0,1fr))}.bercard .bh{flex-wrap:wrap}}
   .tabs-top .n.soft{background:var(--blue-tint,rgba(0,122,255,.14));color:var(--blue-ink,#0a58ca)}
   .tabs-top button.bt{padding:6px 12px}
-  .berseg{display:none;margin-bottom:8px}
-  .berseg i{font-style:normal;font-size:11px;font-weight:700;margin-left:5px;color:var(--muted)}
+  .berseg{display:none}
+  .berseg i{font-style:normal;font-size:11.5px;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--blue-tint);color:var(--blue-ink)}
   .berseg i:empty{display:none}
-  @media (max-width:720px){.berseg{display:flex}.berseg button{flex:1}}
+  @media (max-width:720px){
+    .berseg{display:flex;flex-wrap:nowrap;border-radius:14px;padding:3px;margin:0 12px 12px;position:sticky;top:max(8px,env(safe-area-inset-top));z-index:30;
+      background:var(--glass);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--glass-edge);box-shadow:var(--shadow)}
+    .berseg button{flex:1;padding:10px 6px;font-size:15px;border-radius:11px;white-space:nowrap}
+    .berseg button.on{background:var(--blue);color:#fff}
+    .berseg button.on i{background:rgba(255,255,255,.25);color:#fff}
+    body.mcard .berseg{display:none}
+    body:not([data-view="vWork"]) .berseg{display:none}
+    .kpi .amp{white-space:normal;line-height:1.25}
+  }
   .itmerge{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto}
   .f .itmerge label{display:flex;gap:10px;align-items:flex-start;padding:7px 4px;border-bottom:1px solid var(--sep);font-weight:500;color:var(--ink);flex-direction:row;cursor:pointer}
   .itmerge input{margin-top:3px;flex:none}
@@ -852,6 +861,7 @@
     <div class="modal-foot"><button class="btn blue" id="keyClose">Alles klar</button></div>
   </div>
 </div>
+<div class="seg berseg" id="berSeg"><button data-b="ihro" class="on">Ihro<i id="bcI"></i></button><button data-b="transa">Transa<i id="bcT"></i></button><button data-b="heyrecruit">HeyRecruit<i id="bcH"></i></button></div>
 <section class="kpiwrap">
   <div class="kpis">
     <div class="kpi"><div class="l">Neue Bewerber heute</div><div class="v" id="kNeu">–</div><div class="s" id="kNeuS">aus allen Ihro-Kampagnen</div></div>
@@ -870,7 +880,6 @@
     <div class="listhead">
       <div class="ph" style="margin:0"><h2 id="listTitle">Heute anrufen</h2><span class="note" id="listNote"></span>
         <span class="act"><button class="btn sm quiet" id="clearSearch" hidden>Suche beenden</button></span></div>
-      <div class="seg berseg" id="berSeg"><button data-b="ihro" class="on">Ihro<i id="bcI"></i></button><button data-b="transa">Transa<i id="bcT"></i></button><button data-b="heyrecruit">HeyRecruit<i id="bcH"></i></button></div>
       <div class="seg" id="qFilter">
         <button class="on" data-f="alle">Alle</button>
         <button data-f="faellig">Wiedervorlage</button>
