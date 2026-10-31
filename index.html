@@ -3376,6 +3376,7 @@ function ovLab(b) {
 const ovLong = (b) => OV.modus === "woche" ? `${b.label} (${shortDate(b.von)}–${shortDate(b.bis)})` : new Date(b.key + "T12:00:00Z").toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 async function loadOverview(frisch) {
   if (!configured()) return;
+  loadOverview.t = Date.now();
   loadWoche();
   if (frisch) $("ovRefresh").classList.add("spinning");
   try {
@@ -3560,9 +3561,17 @@ $("refresh").addEventListener("click", () => { loadAll(); if (selId) openLead(se
 let lastDay = todayISO();
 setInterval(() => {
   if (todayISO() !== lastDay) { lastDay = todayISO(); loadAll(); return; }
-  if (!document.hidden && configured()) { loadStats(); loadWork(); if (view === "vMail") loadMails(); if (view === "vOver" && Date.now() - (loadOverview.t || 0) > 5 * 60e3) { loadOverview.t = Date.now(); loadOverview(); } }
+  if (!document.hidden && configured()) { loadStats(); loadWork(); if (view === "vMail") loadMails(); if (view === "vOver" && Date.now() - (loadOverview.t || 0) > 5 * 60e3) loadOverview(); }
 }, 60000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && configured()) { loadStats(); loadWork(); } });
+// App kommt aus dem Hintergrund (iPhone): sofort alles auffrischen, auch den Überblick
+function wiederDa() {
+  if (document.hidden || !configured()) return;
+  if (todayISO() !== lastDay) { lastDay = todayISO(); loadAll(); return; }
+  loadStats(); loadWork();
+  if (view === "vOver" && Date.now() - (loadOverview.t || 0) > 60e3) loadOverview();
+}
+document.addEventListener("visibilitychange", wiederDa);
+window.addEventListener("pageshow", (e) => { if (e.persisted) wiederDa(); });
 // ---------- Einrichtung auf neuen Geräten (iPhone) ----------
 const PAGES_URL = "https://dennismendehub.github.io/tool/";
 function loadFail(e) {
