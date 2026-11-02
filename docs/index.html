@@ -339,6 +339,11 @@
   .mdupe{margin-top:10px;border-radius:12px;padding:8px 12px;background:var(--beacon-tint);font-size:13.5px}
   .mdupe b{color:var(--beacon-ink)}
   .mdupe button{border:0;background:none;color:var(--blue-ink);font:inherit;font-weight:600;padding:0;cursor:pointer}
+  .pass{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:0 6px;line-height:17px;margin-right:2px;vertical-align:1px}
+  .pass.p-hoch{background:#dcfce7;color:#166534}.pass.p-mittel{background:#fef3c7;color:#92400e}.pass.p-gering{background:#f2f4f7;color:#475467}.pass.p-ko{background:#fee2e2;color:#991b1b}
+  .lidiv{margin:14px 4px 6px;font-size:12.5px;font-weight:700;color:#991b1b;display:flex;flex-direction:column;gap:2px}
+  .lidiv span{font-weight:500;color:var(--ink2);font-size:12px}
+  #trSort{margin-top:8px}
   .segn{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--beacon-tint);color:var(--beacon-ink);font-size:11px;font-weight:700;line-height:18px;text-align:center}
   .mcard.slim{padding:12px 16px;background:rgba(255,255,255,.42)}
   .mcard.slim .mhead b{font-size:16px}
@@ -950,6 +955,7 @@
         <button class="tr-only" data-f="nq" title="Transa-Bewerber mit Status „Nicht qualifiziert“ – über „Alle Kampagnen“ je Region">Nicht qualifiziert <span class="segn" id="nqN"></span></button>
       </div>
       <select class="inp" id="campFilter"><option value="">Alle Kampagnen</option></select>
+      <select class="inp tr-only" id="trSort" title="Reihenfolge der Transa-Anrufliste"><option value="passung">Sortieren: Passung (beste zuerst)</option><option value="alter">Sortieren: Alter (älteste Bewerbung zuerst)</option><option value="neu">Sortieren: neueste Bewerbung zuerst</option></select>
     </div>
     <div class="llist" id="queue"><div class="sk"><i></i><i></i><i></i></div></div>
   </section>
@@ -1488,6 +1494,30 @@ async function loadTrq() {
     if (QST[qf]) renderQueue();
   } catch (e) { if (QST[qf]) toast(e.message, true); }
 }
+// Transa: Vorab-Passung aus dem Formular (gleiche Punkte wie im Leitfaden: Code 95, Erfahrung, Start; max. 50)
+// K.o. laut Formular: kein CE oder kein Wohnsitz in Deutschland -> eigener Abschnitt unten
+let TRA = {}, trSort = store.get("tc_trsort") || "passung";
+async function loadTra() { if (BER !== "transa") return; try { const r = await api("transa_antworten"); TRA = r.antworten || {}; if (!QST[qf]) renderQueue(); } catch {} }
+function passung(l) {
+  const f = trAnswersMap({ answers: (l.answers && l.answers.length ? l.answers : TRA[l.lead_id]) || [] });
+  if (!Object.keys(f).length) return null;
+  const ko = []; if (f.fuehrerschein_ce === "nein") ko.push("kein CE"); if (f.wohnsitz_de === "nein") ko.push("kein Wohnsitz in Deutschland");
+  let p = 0;
+  p += f.code_95 === "ja" ? 10 : /bald/.test(f.code_95 || "") ? 5 : 0;
+  p += /mehr/.test(f.erfahrung || "") ? 25 : /unter/.test(f.erfahrung || "") ? 5 : f.erfahrung ? 15 : 0;
+  p += /januar/i.test(f.start || "") ? 15 : /feb|maerz|märz/i.test(f.start || "") ? 10 : f.start ? 3 : 0;
+  return { p, ko, stufe: ko.length ? "ko" : p >= 40 ? "hoch" : p >= 25 ? "mittel" : "gering" };
+}
+const PSTUFE = { hoch: "Passung hoch", mittel: "Passung mittel", gering: "Passung gering", ko: "K.o." };
+const passTag = (pa) => pa ? `<span class="pass p-${pa.stufe}" title="Vorab aus dem Formular: ${pa.p} von 50 Punkten${pa.ko.length ? " · " + pa.ko.join(", ") : ""}">${pa.stufe === "ko" ? "K.o.: " + esc(pa.ko.join(", ")) : PSTUFE[pa.stufe]}</span> ` : "";
+const trListMode = () => BER === "transa" && !searchRes && !QST[qf] && qf !== "ptplan";
+function trSortList(L) {
+  const ts = (l) => new Date(l.lead_created_at || l.last_status_change || 0).getTime();
+  const w = L.map((l) => ({ l, pa: passung(l) }));
+  w.sort((a, b) => ((a.pa && a.pa.stufe === "ko") - (b.pa && b.pa.stufe === "ko")) ||
+    (trSort === "alter" ? ts(a.l) - ts(b.l) : trSort === "neu" ? ts(b.l) - ts(a.l) : ((b.pa ? b.pa.p : -1) - (a.pa ? a.pa.p : -1)) || ts(a.l) - ts(b.l)));
+  return w.map((x) => x.l);
+}
 function filtered() {
   if (!searchRes && QST[qf]) { let Q = trqList(qf); if (campF) Q = Q.filter((l) => l.kampagne === campF); return Q; }
   let L = searchRes ?? (qf === "ptplan" ? (W.probetag_planen || []) : W.arbeitsliste);
@@ -1499,6 +1529,7 @@ function filtered() {
     if (qf === "ne") L = L.filter((l) => statusKind(l.status) === "ne");
   }
   if (campF) L = L.filter((l) => l.kampagne === campF);
+  if (trListMode()) L = trSortList(L);
   return L;
 }
 function renderQueue() {
@@ -1509,6 +1540,12 @@ function renderQueue() {
   $("listNote").textContent = searchRes ? `${L.length} Treffer` : pt ? `${L.length} offen · älteste zuerst` : `${L.length} von ${W.arbeitsliste.length}`;
   $("clearSearch").hidden = !searchRes;
   $("qFilter").style.display = searchRes ? "none" : "";
+  if (trListMode() && L.length) {
+    const sub = (l, pa) => passTag(pa) + (l.followup_at && new Date(l.followup_at) <= new Date() ? `Wiedervorlage ${when(l.followup_at)}` : esc(String(l.kampagne || "").replace(/^T_Transa[_ ]*/i, "")));
+    const ok = [], ko = [];
+    for (const l of L) { const pa = passung(l); (pa && pa.stufe === "ko" ? ko : ok).push(liHtml(l, sub(l, pa))); }
+    $("queue").innerHTML = ok.join("") + (ko.length ? `<div class="lidiv">K.o. laut Formular · ${ko.length}<span>kein CE oder kein Wohnsitz in Deutschland – kurz prüfen, ob die Angabe stimmt</span></div>` + ko.join("") : "");
+  } else
   $("queue").innerHTML = L.length ? L.map((l) => pt ? liHtml(l, `${esc(l.kampagne)}${l.last_note ? " · " + esc(String(l.last_note).slice(0, 80)) : ""}`,
       `<span class="age ${Date.now() - new Date(l.last_status_change || l.lead_created_at) > 2 * 864e5 ? "warm" : ""}" title="seit dann auf „Probetag vereinbaren“">${rel(l.last_status_change || l.lead_created_at)}</span>`) : liHtml(l)).join("")
     : `<div class="empty">${pt ? "Niemand auf „Probetag vereinbaren“. Alles geplant." : searchRes ? "Niemand gefunden. Suche nach Vor- oder Nachname, den letzten Ziffern der Nummer oder der E-Mail." : W.leads_gesamt === 0 ? "Noch keine Bewerber geladen. Einstellungen → Bewerber aus LeadTable abgleichen." : "Hier ist gerade niemand. Gute Arbeit."}</div>`;
@@ -1547,7 +1584,7 @@ async function loadWork() {
     if (!window._wvAt || Date.now() - window._wvAt > 300000) { window._wvAt = Date.now(); try { await api("wiedervorlagen"); } catch {} }
     WALL = await api("work");
     for (const x of NEUE_STATUS) if (!(WALL.status_liste || []).some((y) => norm(y) === norm(x))) (WALL.status_liste = WALL.status_liste || []).push(x);
-    applyBereich(); renderWork(); loadTrq();
+    applyBereich(); renderWork(); loadTrq(); loadTra();
   } catch (e) { if (e.message !== "Nicht eingerichtet") toast(e.message, true); }
 }
 // ---------- Bereiche: Ihro / Transa / HeyRecruit ----------
@@ -1575,7 +1612,7 @@ function setBereich(b) {
   if (b === BER) return;
   BER = b; campF = "";
   if (QST[qf] && b !== "transa") { qf = "alle"; $("qFilter").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.f === "alle")); }
-  if (b === "transa") loadTrq();
+  if (b === "transa") { loadTrq(); loadTra(); }
   if (!searchRes) { selId = null; cur = null; document.body.classList.remove("mcard"); }
   applyBereich(); renderWork();
   $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === "vWork" && (x.dataset.b || "ihro") === BER));
@@ -1599,6 +1636,8 @@ function renderWork() {
 }
 $("qFilter").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $("qFilter").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); qf = b.dataset.f; renderQueue(); });
 $("campFilter").addEventListener("change", (e) => { campF = e.target.value; renderQueue(); });
+$("trSort").value = trSort;
+$("trSort").addEventListener("change", (e) => { trSort = e.target.value; store.set("tc_trsort", trSort); renderQueue(); });
 for (const id of ["queue", "newest", "planned", "trials"]) $(id).addEventListener("click", (e) => { const b = e.target.closest(".li"); if (b) openLead(b.dataset.id); });
 
 // Suche
