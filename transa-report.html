@@ -137,11 +137,14 @@ async function load() {
   } catch (e) { $("main").innerHTML = '<div class="msg err">Konnte nicht laden: ' + esc(e.message) + '</div>'; }
 }
 
+/* Testeinträge (eigene Testbewerbungen) zählen im Report nicht */
+const TEST_IDS = new Set(["6ae83c5ca286e77282f27196", "6ae31d16f5aeb9f5a81e9491", "6ae2101e24e78f012e4d8007"]);
+
 /* Bewerber mit Koordinaten, Entfernung zum Mittelpunkt der Kampagne, Zeitraum-Filter */
 function prep() {
   const z = $("zeit").value, ab = z === "alle" ? 0 : Date.now() - Number(z) * 864e5;
   const reg = Object.fromEntries(DATA.regionen.map((r) => [r.key, r]));
-  const leads = DATA.leads.filter((l) => new Date(l.datum).getTime() >= ab).map((l) => {
+  const leads = DATA.leads.filter((l) => !TEST_IDS.has(l.id) && new Date(l.datum).getTime() >= ab).map((l) => {
     const p = PLZ[l.plz]; const zr = reg[l.region]?.ziel;
     const o = { ...l, lat: p ? p[0] : null, lon: p ? p[1] : null, plzOrt: p ? p[2] : "" };
     const ortOk = l.ort && !/^(ruhr|ruhrgebiet|nordwest|nordost|suedwest|südwest|suedost|südost|rheinmain|rhein-main|mitte|osten|westen|norden|sueden|süden|ost|west|nord|süd|sued)$/i.test(l.ort);
