@@ -2140,6 +2140,7 @@ function trRender() {
   $("trSteps").querySelectorAll("button").forEach((b) => b.classList.toggle("on", Number(b.dataset.s) === TR.step));
   $("trNe").textContent = "Nicht erreicht · " + nextNE(l.status).replace("Nicht-Erreicht ", "NE ");
   $("trSave").textContent = TR.saved && !TR.saved.entwurf ? "Änderungen an LeadTable senden" : "Speichern und an LeadTable senden";
+  $("trSave").disabled = !!TR.sending; // nach dem letzten Senden war der Knopf beim nächsten Bewerber noch gesperrt
   let h = "";
   if (TR.step === 0) h = `<div class="trsay"><p>${esc(trCfg.begruessung.replace("{anrede}", nach ? "Herr/Frau " + nach : ""))}</p></div>
     <div class="row" style="gap:8px"><button class="btn blue" data-go="1">Weiter: Projekt</button></div>`;
@@ -2207,7 +2208,7 @@ async function trFinal() {
   if (s.offen.length && !ko) { toast(`Noch offen: Frage ${s.offen.join(", ")} – oder „Später weiter“`, true); TR.step = 2; trRender(); return; }
   if (TR.start) { TR.dauer = trElapsed(); TR.start = null; }
   const l = TR.lead, st = TR.status || s.vorschlag, btn = $("trSave");
-  btn.disabled = true; btn.textContent = "Wird gesendet …";
+  TR.sending = true; btn.disabled = true; btn.textContent = "Wird gesendet …";
   let schritt = "Gespräch speichern";
   try {
     const pl = trPayload({ entwurf: false });
@@ -2222,10 +2223,11 @@ async function trFinal() {
   } catch (e) {
     try { await api("transa_save", { id: l.lead_id, lt_fehler: `${schritt}: ${e.message}` }); } catch {}
     toast(`${schritt} hat nicht geklappt: ${e.message}. Das Gespräch ist gespeichert – nochmal senden.`, true);
-    btn.disabled = false; btn.textContent = "Nochmal an LeadTable senden";
+    TR.sending = false; btn.disabled = false; btn.textContent = "Nochmal an LeadTable senden";
     return;
   }
   toast(`${l.name || "Bewerber"}: ${st} – in LeadTable eingetragen`);
+  TR.sending = false; btn.disabled = false;
   trClose();
   try { await loadWork(); loadStats(); if (selId === l.lead_id) { const r = await api("lead_get", { id: l.lead_id }); cur = r.lead; renderCard(r); } } catch {}
 }
