@@ -780,6 +780,56 @@
     .toast{bottom:calc(90px + env(safe-area-inset-bottom))}
     body.mcard .toast{bottom:calc(160px + env(safe-area-inset-bottom))}
   }
+
+  /* ---------- Transa: Gesprächsfenster (Leitfaden + Scoring) ---------- */
+  body:not([data-ber="transa"]) .tr-only{display:none!important}
+  #trOv .modal{max-width:860px}
+  #trOv .modal>.trhead,#trOv .modal>.trsteps,#trOv .modal>.trlive{flex:0 0 auto}
+  #trOv .modal>.trhead{flex-direction:row}
+  #trOv .modal>.trlive{flex-direction:row}
+  #trOv .modal>#trBody{flex:1 1 auto;min-height:0}
+  .trhead{display:flex;gap:16px;align-items:center;padding:18px 24px 10px;flex-wrap:wrap}
+  .trhead .who{flex:1 1 220px;min-width:0}
+  .trhead .who b{display:block;font-family:var(--disp);font-size:22px;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trhead .who span{font-size:13px;color:var(--muted)}
+  .trclock{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .trclock .clock{font-variant-numeric:tabular-nums}
+  .trplate{width:96px;border:3px solid #1a1a1a;background:#FF9F0A;color:#1a1a1a;border-radius:4px;text-align:center;font-family:var(--disp);font-weight:800;flex:0 0 auto}
+  .trplate .t{font-size:28px;line-height:1;padding:5px 0 3px;border-bottom:2px solid #1a1a1a;font-variant-numeric:tabular-nums}
+  .trplate .b{font-size:18px;line-height:1;padding:4px 0 5px}
+  .trplate.ko{background:var(--stop);color:#fff;border-color:#5a120d}.trplate.ko .t{border-color:#5a120d}
+  .trsteps{padding:0 24px 8px}
+  .trlive{padding:8px 24px;font-size:13.5px;color:var(--muted);border-top:.5px solid var(--sep);display:flex;gap:8px;flex-wrap:wrap}
+  .trlive b{color:var(--ink)}
+  #trBody{padding:6px 24px 16px;overflow:auto}
+  .trsay{background:var(--fill2);border-radius:14px;padding:12px 16px;margin-bottom:12px;max-width:70ch;font-size:15px;line-height:1.5}
+  .trsay p{margin:0}.trsay ul{margin:0;padding-left:18px;display:grid;gap:4px}
+  .trq{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:.5px solid var(--sep)}
+  .trq.ko{background:var(--stop-tint);margin:0 -24px;padding-left:24px;padding-right:24px}
+  .trq .n{font-size:12.5px;color:var(--muted);padding-top:2px;font-variant-numeric:tabular-nums}
+  .trq .l{font-weight:600;font-size:14.5px}
+  .trq .b{display:grid;gap:6px;min-width:0}
+  .kotag{font-size:10.5px;font-weight:800;color:var(--stop-ink);letter-spacing:.06em;margin-left:6px}
+  .fromtag{font-size:11.5px;color:var(--muted);font-weight:500;margin-left:6px}
+  .tropts{display:flex;flex-wrap:wrap;gap:6px}
+  .tropts button{border:1px solid var(--sep-strong);background:var(--field);border-radius:999px;padding:5px 13px;font-size:14px;font-weight:500;color:var(--ink)}
+  .tropts button.on{background:var(--ink);color:var(--glass-hi);border-color:var(--ink)}
+  .tropts button.bad.on{background:var(--stop);border-color:var(--stop);color:#fff}
+  .trlab{display:block;font-weight:600;font-size:14px;margin:12px 0 6px}
+  .trprot{margin-top:12px}.trprot summary{cursor:pointer;font-size:13.5px;color:var(--blue-ink)}
+  .trprot pre{white-space:pre-wrap;font-size:12.5px;background:var(--fill2);padding:10px 12px;border-radius:10px;margin:8px 0 0}
+  #trOv .modal-foot{flex-wrap:wrap}
+  .trmini{display:inline-block;min-width:26px;text-align:center;font-weight:800;border:2px solid #1a1a1a;background:#FF9F0A;color:#1a1a1a;border-radius:3px;padding:0 4px;font-size:13px}
+  .trmini.ko{background:var(--stop);color:#fff}
+  #trListOv .modal{max-width:1040px}
+  .trsum{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-bottom:10px}.trsum b{color:var(--ink);font-size:18px}
+  .trtw{overflow:auto}
+  .trtable{border-collapse:collapse;width:100%;font-size:14px}
+  .trtable th,.trtable td{text-align:left;padding:8px 10px;border-bottom:.5px solid var(--sep);white-space:nowrap}
+  .trtable th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .trtable td.num{font-variant-numeric:tabular-nums}
+  .trtable tr[data-id]{cursor:pointer}.trtable tr[data-id]:hover td{background:var(--fill2)}
+  @media (max-width:720px){.trhead,.trsteps,.trlive,#trBody{padding-left:16px;padding-right:16px}.trq.ko{margin:0 -16px;padding-left:16px;padding-right:16px}.trplate{width:80px}.trplate .t{font-size:22px}}
 </style>
 </head>
 <body>
@@ -879,7 +929,7 @@
   <section class="panel">
     <div class="listhead">
       <div class="ph" style="margin:0"><h2 id="listTitle">Heute anrufen</h2><span class="note" id="listNote"></span>
-        <span class="act"><button class="btn sm quiet" id="clearSearch" hidden>Suche beenden</button></span></div>
+        <span class="act"><button class="btn sm tr-only" id="trOvBtn" type="button">Scoring-Übersicht</button><button class="btn sm quiet" id="clearSearch" hidden>Suche beenden</button></span></div>
       <div class="seg" id="qFilter">
         <button class="on" data-f="alle">Alle</button>
         <button data-f="faellig">Wiedervorlage</button>
@@ -1057,6 +1107,33 @@
   </div>
 </div>
 
+<!-- Transa: Gesprächsfenster -->
+<div class="ov center" id="trOv" role="dialog" aria-modal="true" aria-labelledby="trName">
+  <div class="modal">
+    <div class="trhead">
+      <div class="who"><b id="trName"></b><span id="trMeta"></span></div>
+      <div class="trclock"><div class="clock" id="trClock">0:00</div><button class="btn sm" id="trClockBtn" type="button">Uhr starten</button></div>
+      <div class="trplate" id="trPlate" aria-label="Score"><div class="t" id="trPts">0</div><div class="b" id="trKl">C</div></div>
+    </div>
+    <div class="trsteps"><div class="seg big" id="trSteps"><button type="button" data-s="0">1 Begrüßung</button><button type="button" data-s="1">2 Projekt</button><button type="button" data-s="2">3 Qualifizieren</button><button type="button" data-s="3">4 Abschluss</button></div></div>
+    <div class="modal-body" id="trBody"></div>
+    <div class="trlive" id="trLive"></div>
+    <div class="modal-foot"><button class="btn ne" id="trNe" type="button">Nicht erreicht</button><button class="btn quiet" id="trLater" type="button">Später weiter</button><button class="btn quiet" id="trClose" type="button">Schließen</button><span style="flex:1"></span><button class="btn go" id="trSave" type="button">Speichern und an LeadTable senden</button></div>
+  </div>
+</div>
+<div class="ov center" id="trListOv" role="dialog" aria-modal="true" aria-labelledby="trListTitle">
+  <div class="modal">
+    <div class="modal-head"><div class="t"><b id="trListTitle">Transa – Scoring-Übersicht</b><span>Alle geführten Erstgespräche, beste zuerst. Zeile antippen öffnet den Bewerber.</span></div></div>
+    <div class="modal-body" style="padding:0 24px 16px;overflow:auto">
+      <div class="trsum" id="trLSum"></div>
+      <div class="row" style="gap:8px;margin-bottom:10px"><select class="inp" id="trLReg" style="width:auto"><option value="">Alle Regionen</option></select>
+        <select class="inp" id="trLKl" style="width:auto"><option value="">Alle Klassen</option><option>A</option><option>B</option><option>C</option><option value="K.o.">K.o.</option><option value="E">Entwürfe</option></select></div>
+      <div class="trtw"><table class="trtable"><thead><tr><th>Klasse</th><th>Punkte</th><th>Name</th><th>Region</th><th>Wohnort</th><th>ADR</th><th>Start</th><th>Status</th><th>Gespräch</th></tr></thead><tbody id="trListBody"></tbody></table></div>
+    </div>
+    <div class="modal-foot"><button class="btn blue" id="trListClose" type="button">Schließen</button></div>
+  </div>
+</div>
+
 <!-- Disponent -->
 <div class="ov center" id="mailOv" role="dialog" aria-modal="true" aria-labelledby="mailTitle">
   <div class="modal">
@@ -1199,7 +1276,7 @@ function toast(msg, err) {
 }
 async function api(action, data = {}) {
   if (!configured()) throw new Error("Nicht eingerichtet");
-  const fn = /^(item_edit|speicher|sicherung|sync_leads|wiedervorlagen|overview_getrennt|heute_bereiche)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
+  const fn = /^transa_/.test(action) ? "transa-gespraech" : /^(item_edit|speicher|sicherung|sync_leads|wiedervorlagen|overview_getrennt|heute_bereiche)$/.test(action) ? "items-edit" : "dashboard-api"; // Notizen bearbeiten, Speicher & Sicherung laufen über eine eigene kleine Funktion
   const url = cfg.url.replace(/\/+$/, "") + "/functions/v1/" + fn, opt = {
     method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": cfg.token }, body: JSON.stringify({ action, ...data }),
   };
@@ -1554,6 +1631,7 @@ function renderCard(r) {
       <button class="btn" id="dispBtn">${ICON.truck}Disponent fragen</button>
       <button class="btn" id="terminBtn">${ICON.cal}Termin</button>
       <button class="btn" id="calledBtn" title="Dieser Bewerber hat bei dir angerufen – zählt als eingehender Anruf">${ICON.phone}Hat angerufen</button>
+      ${isTransa(l) ? `<button class="btn blue" id="trLfBtn" title="Gesprächsfenster mit Leitfaden und Scoring">Leitfaden</button>` : ""}
     </div>
     ${(r.frueher || []).length ? `<div class="dupe"><b>Schon bekannt: ${r.frueher.length === 1 ? "eine frühere Bewerbung" : r.frueher.length + " frühere Bewerbungen"}</b>${r.frueher.map((f) => `<button data-open="${esc(f.lead_id)}"><span class="n">${esc(f.kampagne)}</span>, ${f.lead_created_at ? new Date(f.lead_created_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "2-digit" }) : ""}, ${esc(f.status || "")}${f.description ? `<span class="d">${esc(f.description)}</span>` : ""}</button>`).join("")}</div>` : ""}
     ${post && post.id === l.lead_id ? `<div class="postbar"><b>${esc(post.msg)}</b><span class="grow"></span>
@@ -1611,6 +1689,11 @@ function renderCard(r) {
   $("nextLead").addEventListener("click", nextLead);
   bindHireBox();
   $("calledBtn").addEventListener("click", () => openCall(cur));
+  if (isTransa(l)) { // Transa: Anruf öffnet zusätzlich das Gesprächsfenster (Telefon wählt trotzdem)
+    if ($("telLink")) $("telLink").addEventListener("click", () => openTr(cur, true));
+    if ($("mTel")) $("mTel").addEventListener("click", () => openTr(cur, true));
+    $("trLfBtn").addEventListener("click", () => openTr(cur, false));
+  }
   $("terminBtn").addEventListener("click", () => openTermin({ lead_id: cur.lead_id, name: cur.name, meas: cur.kampagne, art: "Vorstellungsgespräch" }));
   $("dispBtn").addEventListener("click", openMail);
   $("noteSave").addEventListener("click", saveNote);
@@ -1913,6 +1996,254 @@ async function reloadDesc() {
   if ($("descReload")) { $("descReload").disabled = false; $("descReload").textContent = "aus LeadTable neu laden"; }
 }
 function confirmDiscard() { toast("Erst speichern oder verwerfen", true); return false; }
+
+// ---------- Transa: Gesprächsfenster mit Leitfaden und Scoring ----------
+// Öffnet sich bei Transa-Bewerbern mit dem Anruf-Knopf (Telefon wählt trotzdem). Fragen, Punkte und Schwelle kommen aus
+// settings.transa_leitfaden (leer = TR_DEF). Speichern: Gespräch in transa_gespraeche (Funktion transa-gespraech),
+// Protokoll unter die LeadTable-Beschreibung (lead_description), Status setzen (lead_status).
+const TR_DEF = {
+  schwelle: 55, a_ab: 75,
+  begruessung: "„Guten Tag {anrede}, hier ist Dennis Mende von der Spedition Ihro aus Neuenstein. Sie haben sich für unser Gefahrgut-Projekt beworben. Passen gerade zehn Minuten?“",
+  projekt: [
+    "Ihro fährt ab voraussichtlich Anfang 2027 für einen Auftraggeber Gefahrgut, auch Klasse 1 (explosive Stoffe).",
+    "Fernverkehr: Montag bis Freitag unterwegs, überwiegend in Deutschland, gelegentlich grenznahes Ausland, keine längeren Auslandsaufenthalte.",
+    "Ihr LKW steht in Ihrer Region; den genauen Abstellort legen wir gerade fest.",
+    "3.600 € brutto im Monat, die ADR-Schulungen bezahlen wir.",
+    "Weil Klasse 1 transportiert wird, gibt es eine Zuverlässigkeitsprüfung durch den Auftraggeber.",
+  ],
+  offen: "Noch nicht zusagen: genauer Starttermin, Abstellort, Spesen, Arbeitgeber, Schulungstermine. Antwort: „Das klären wir gerade final mit dem Auftraggeber, Sie bekommen es schriftlich mit dem Angebot.“",
+  abschluss: [
+    "E-Mail-Adresse bestätigen: „Sie bekommen heute noch eine E-Mail mit den Projektinfos und den Unterlagen, die wir brauchen.“",
+    "„Sobald der Abstellort für Ihre Region feststeht, schicken wir Ihnen das konkrete Angebot und rufen Sie an.“",
+    "Fragen des Bewerbers notieren.",
+  ],
+  staaten: "Afghanistan, Algerien, Armenien, Aserbaidschan, Belarus, China (inkl. Hongkong, Macau), Georgien, Irak, Iran, Kasachstan, Kirgisistan, Nordkorea, Kuba, Laos, Libanon, Libyen, Moldau, Pakistan, Russland, Sudan, Syrien, Tadschikistan, Turkmenistan, Ukraine, Usbekistan, Vietnam",
+  fragen: [
+    { k: "ce", label: "Führerschein CE gültig?", o: [["ja", "ja", 0], ["nein", "nein", 0, 1]] },
+    { k: "code95", label: "Code 95 gültig bis wann?", o: [["gueltig", "gültig", 10], ["bald", "läuft bald ab", 5], ["nein", "nein", 0]], t: "gültig bis …" },
+    { k: "karte", label: "Fahrerkarte vorhanden?", o: [["ja", "ja", 0], ["nein", "nein", 0]] },
+    { k: "adr", label: "ADR heute – gültig bis?", o: [["klasse1", "Klasse 1", 20], ["basis", "Basis", 10], ["keiner", "keiner", 0]], t: "gültig bis …" },
+    { k: "schulung", label: "Bereit für Basis- und Klasse-1-Kurs inkl. Prüfung?", o: [["ja", "ja", 0], ["nein", "nein", 0, 1]] },
+    { k: "erfahrung", label: "Erfahrung – Jahre und Einsätze", o: [["ueber3", "über 3 Jahre", 20], ["1bis3", "1–3 Jahre", 15], ["unter1", "unter 1 Jahr", 5]], t: "Nah, Fern, Gefahrgut, Tank …" },
+    { k: "start", label: "Aktuelle Situation, Kündigungsfrist, frühester Start", o: [["januar", "bis Januar", 15], ["febmaerz", "Februar/März", 10], ["spaeter", "später", 3]], t: "angestellt? Kündigungsfrist?" },
+    { k: "anfahrt", label: "Wohnort/PLZ – Anfahrt über 30 Min. ok? Eigenes Auto?", o: [["beides", "beides ja", 10], ["eins", "nur eins", 5], ["keins", "keins", 0]], t: "PLZ Ort" },
+    { k: "fern", label: "Fernverkehr Mo–Fr mit Übernachtung im LKW – passt das?", o: [["ja", "ja", 0], ["nein", "nein", 0, 1]] },
+    { k: "fz", label: "Aktuelles Führungszeugnis + Zuverlässigkeitsprüfung ok?", o: [["ja", "ja", 0], ["nein", "nein", 0, 1]] },
+    { k: "staat", label: "Pflichtfrage Staatenliste – Bezug?", staaten: 1, o: [["kein", "kein Bezug", 0], ["bezug", "Bezug", 0, 1]] },
+    { k: "deutsch", label: "Deutsch – dein Eindruck", o: [["gut", "gut", 10], ["ausreichend", "ausreichend", 5], ["schwierig", "schwierig", 0]] },
+    { k: "gehalt", label: "Aktuelles Gehalt / Vorstellung", t: "z. B. 3.300 € brutto" },
+    { k: "eindruck", label: "Gesamteindruck (Motivation, Zuverlässigkeit, Auftreten)", o: [["1", "1", 3], ["2", "2", 6], ["3", "3", 9], ["4", "4", 12], ["5", "5", 15]] },
+  ],
+};
+const TR_STATI = ["Qualifiziert", "Nicht qualifiziert"];
+const TR_REG = [["fulda", "Fulda/Bad Hersfeld", /fulda|hersfeld/i], ["ruhr", "Ruhrgebiet", /ruhr/i], ["rheinmain", "Rhein-Main", /rhein[\s-]*main/i], ["osnabrueck", "Raum Osnabrück", /osnabr/i], ["halle", "Halle/Leipzig", /halle|leipzig/i]];
+const trRegion = (k) => (TR_REG.find((r) => r[2].test(k || "")) || [null, "Allgemein"])[1];
+let TR = null, trTick = null, trCfg = null;
+const isTransa = (l) => l && berL(l) === "transa";
+
+function trAnswersMap(l) { const m = {}; for (const a of l.answers || []) m[String(a.q).toLowerCase()] = String(a.a ?? "").trim(); return m; }
+function trPrefill(l) {
+  const f = trAnswersMap(l), a = {}, t = {};
+  if (f.fuehrerschein_ce) a.ce = f.fuehrerschein_ce === "ja" ? "ja" : "nein";
+  if (f.code_95) a.code95 = f.code_95 === "ja" ? "gueltig" : /bald/.test(f.code_95) ? "bald" : "nein";
+  if (f.adr) a.adr = f.adr === "klasse1" ? "klasse1" : f.adr === "basis" ? "basis" : "keiner";
+  if (f.erfahrung) a.erfahrung = /mehr/.test(f.erfahrung) ? "ueber3" : /unter/.test(f.erfahrung) ? "unter1" : "1bis3";
+  if (f.start) a.start = /januar/i.test(f.start) ? "januar" : /feb|maerz|märz/i.test(f.start) ? "febmaerz" : "spaeter";
+  const ort = [f.wohnort, f.ort].find((o) => o && !/^(mitte|osten|westen|norden|sueden|süden|nord|süd|sued|west|ost|nordwest|nordost|südwest|suedwest|südost|suedost|ruhr|rheinmain)$/i.test(o)) || "";
+  t.anfahrt = [f.plz, ort].filter(Boolean).join(" ");
+  return { a, t, from: Object.keys(a), wohnsitz: f.wohnsitz_de || "" };
+}
+function trScore() {
+  const C = trCfg; let pts = 0; const ko = [], offen = [];
+  C.fragen.forEach((q, i) => {
+    if (!q.o) return;
+    const v = TR.ans[q.k]; if (v == null) { offen.push(i + 1); return; }
+    const o = q.o.find((x) => x[0] === v); if (!o) return;
+    pts += Number(o[2]) || 0; if (o[3]) ko.push(q.label.replace(/ –.*|\?.*/, "").trim());
+  });
+  if (TR.wohnsitz === "nein") ko.push("kein Wohnsitz in Deutschland");
+  const klasse = ko.length ? "K.o." : pts >= C.a_ab ? "A" : pts >= C.schwelle ? "B" : "C";
+  const vorschlag = ko.length || pts < C.schwelle ? "Nicht qualifiziert" : "Qualifiziert";
+  return { pts, ko, offen, klasse, vorschlag };
+}
+const trElapsed = () => Math.round(TR.start ? TR.dauer + (Date.now() - TR.start) / 1000 : TR.dauer);
+function trOpt(k) { const q = trCfg.fragen.find((x) => x.k === k), o = q && q.o && q.o.find((x) => x[0] === TR.ans[k]); return o ? o[1] : "–"; }
+function trWithT(k) { const t = String(TR.txt[k] || "").trim(); return trOpt(k) + (t ? ` (${t})` : ""); }
+function trProtokoll(s, st) {
+  const d = new Date(), min = Math.round(trElapsed() / 60);
+  const lines = [`Transa-Erstgespräch ${d.toLocaleDateString("de-DE")} ${d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}${min ? ` (${min} Min.)` : ""}`,
+    `Ergebnis: ${st} – ${s.ko.length ? "K.o.: " + s.ko.join(", ") : s.pts + " Punkte, Klasse " + s.klasse}`];
+  const known = new Set(["ce", "code95", "karte", "adr", "schulung", "erfahrung", "start", "anfahrt", "fern", "fz", "staat", "deutsch", "gehalt", "eindruck"]);
+  if (trCfg.fragen.every((q) => known.has(q.k))) {
+    lines.push(`CE: ${trOpt("ce")} · Code 95: ${trWithT("code95")} · Fahrerkarte: ${trOpt("karte")}`,
+      `ADR: ${trWithT("adr")} · Schulung bereit: ${trOpt("schulung")}`,
+      `Erfahrung: ${trWithT("erfahrung")}`, `Start: ${trWithT("start")}`,
+      `Wohnort: ${String(TR.txt.anfahrt || "").trim() || "–"} · Anfahrt >30 Min./Auto: ${trOpt("anfahrt")}`,
+      `Fernverkehr Mo–Fr: ${trOpt("fern")} · Führungszeugnis/Prüfung: ${trOpt("fz")} · Staatenliste: ${trOpt("staat")}`,
+      `Deutsch: ${trOpt("deutsch")} · Gehalt: ${String(TR.txt.gehalt || "").trim() || "–"} · Eindruck: ${TR.ans.eindruck ? TR.ans.eindruck + "/5" : "–"}`);
+  } else {
+    for (const q of trCfg.fragen) lines.push(`${q.label.replace(/\?$/, "")}: ${q.o ? trWithT(q.k) : String(TR.txt[q.k] || "").trim() || "–"}`);
+  }
+  if (String(TR.notiz || "").trim()) lines.push("Notiz: " + TR.notiz.trim());
+  return lines.join("\n");
+}
+
+async function openTr(l, viaAnruf) {
+  if (!l || !isTransa(l)) return;
+  if (TR && TR.lead.lead_id === l.lead_id && $("trOv").classList.contains("show")) return;
+  const p = trPrefill(l);
+  TR = { lead: l, ans: p.a, txt: p.t, from: new Set(p.from), wohnsitz: p.wohnsitz, notiz: "", status: null, start: viaAnruf ? Date.now() : null, dauer: 0, step: 0, saved: null, dirty: false };
+  trCfg = TR_DEF; trRender(); $("trOv").classList.add("show");
+  clearInterval(trTick); trTick = setInterval(() => { const c = $("trClock"); if (c && TR) c.textContent = fmtDur(trElapsed()); }, 1000);
+  try {
+    const r = await api("transa_get", { id: l.lead_id });
+    if (r.leitfaden && Array.isArray(r.leitfaden.fragen)) trCfg = { ...TR_DEF, ...r.leitfaden };
+    const g = r.gespraech;
+    if (g && TR && TR.lead.lead_id === l.lead_id) {
+      TR.saved = g; TR.ans = { ...(g.antworten || {}) }; TR.txt = { ...TR.txt, ...(g.texte || {}) }; TR.notiz = g.notiz || ""; TR.dauer = g.dauer_sek || 0; TR.from = new Set();
+      if (!g.entwurf) { TR.status = g.status; TR.step = 3; } else TR.step = 2;
+    }
+    trRender();
+  } catch (e) { toast("Gespräch konnte nicht geladen werden: " + e.message, true); }
+}
+function trRender() {
+  const l = TR.lead, s = trScore(), st = TR.status || s.vorschlag;
+  const nach = String(l.name || "").trim().split(/\s+/).slice(-1)[0] || "";
+  const ko = !!s.ko.length;
+  $("trName").textContent = l.name || "Ohne Namen";
+  $("trMeta").textContent = [trRegion(l.kampagne), TR.txt.anfahrt || "", l.phone || ""].filter(Boolean).join(" · ");
+  $("trClock").textContent = fmtDur(trElapsed());
+  $("trClockBtn").textContent = TR.start ? "Uhr anhalten" : TR.dauer ? "Uhr weiter" : "Uhr starten";
+  $("trPlate").className = "trplate" + (ko ? " ko" : "");
+  $("trPts").textContent = ko ? "K.o." : s.pts; $("trKl").textContent = ko ? "–" : s.klasse;
+  $("trSteps").querySelectorAll("button").forEach((b) => b.classList.toggle("on", Number(b.dataset.s) === TR.step));
+  $("trNe").textContent = "Nicht erreicht · " + nextNE(l.status).replace("Nicht-Erreicht ", "NE ");
+  $("trSave").textContent = TR.saved && !TR.saved.entwurf ? "Änderungen an LeadTable senden" : "Speichern und an LeadTable senden";
+  let h = "";
+  if (TR.step === 0) h = `<div class="trsay"><p>${esc(trCfg.begruessung.replace("{anrede}", nach ? "Herr/Frau " + nach : ""))}</p></div>
+    <div class="row" style="gap:8px"><button class="btn blue" data-go="1">Weiter: Projekt</button></div>`;
+  else if (TR.step === 1) h = `<div class="trsay"><ul>${trCfg.projekt.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div><p class="hintline">${esc(trCfg.offen)}</p>
+    <div class="row" style="gap:8px"><button class="btn blue" data-go="2">Weiter: Qualifizieren</button></div>`;
+  else if (TR.step === 2) h = `<p class="hintline">Vorbelegt aus dem Formular – vorlesen und bestätigen lassen.${TR.wohnsitz === "nein" ? " <b>Formular: kein Wohnsitz in Deutschland (K.o.)</b>" : ""}</p>
+    ${trCfg.fragen.map((q, i) => trQ(q, i)).join("")}
+    <div class="row" style="gap:8px;margin-top:6px"><button class="btn blue" data-go="3">Weiter: Abschluss</button></div>`;
+  else h = `<div class="trsay"><ul>${trCfg.abschluss.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p style="margin-top:8px">E-Mail laut Bewerbung: <b>${esc(l.email || "keine – bitte erfragen")}</b></p></div>
+    <label class="trlab" for="trNotiz">Notiz / Fragen des Bewerbers</label><textarea class="inp" id="trNotiz">${esc(TR.notiz)}</textarea>
+    <div class="trlab">Ergebnis für LeadTable <span class="hintline" style="margin:0">Vorschlag: ${esc(s.vorschlag)}${s.offen.length && !ko ? ` · noch offen: Frage ${s.offen.join(", ")}` : ""}</span></div>
+    <div class="seg big" id="trSt">${TR_STATI.map((x) => `<button type="button" data-st="${esc(x)}" class="${x === st ? "on" : ""}">${esc(x)}</button>`).join("")}</div>
+    <details class="trprot"><summary>So landet es in der LeadTable-Beschreibung</summary><pre id="trProt">${esc(trProtokoll(s, st))}</pre></details>
+    ${TR.saved && TR.saved.lt_fehler ? `<p class="hintline" style="color:var(--stop-ink)">Letzte Übertragung nach LeadTable fehlgeschlagen: ${esc(TR.saved.lt_fehler)}</p>` : ""}`;
+  $("trBody").innerHTML = h;
+  $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span>${s.offen.length ? s.offen.length + " Fragen offen" : esc(s.vorschlag)}</span>`;
+  trBind();
+}
+function trQ(q, i) {
+  const v = TR.ans[q.k], isKo = q.o && q.o.some((o) => o[3] && o[0] === v), hasKo = q.o && q.o.some((o) => o[3]);
+  return `<div class="trq${isKo ? " ko" : ""}"><span class="n">${i + 1}</span><div class="b">
+    <div class="l">${esc(q.label)}${hasKo ? '<span class="kotag">K.O.</span>' : ""}${TR.from.has(q.k) ? '<span class="fromtag">aus Formular</span>' : ""}</div>
+    ${q.staaten ? `<div class="hintline" style="margin:2px 0 6px">„Für die Sicherheitsprüfung muss ich allen Bewerbern dieselbe Frage stellen: Haben Sie über Staatsangehörigkeit, Geburtsort oder enge Familienangehörige einen Bezug zu einem der folgenden Staaten?“ ${esc(trCfg.staaten)}</div>` : ""}
+    ${q.o ? `<div class="tropts">${q.o.map((o) => `<button type="button" class="${v === o[0] ? "on" : ""}${o[3] ? " bad" : ""}" data-q="${esc(q.k)}" data-v="${esc(o[0])}">${esc(o[1])}</button>`).join("")}</div>` : ""}
+    ${q.t ? `<input class="inp" data-t="${esc(q.k)}" placeholder="${esc(q.t)}" value="${esc(TR.txt[q.k] || "")}">` : ""}
+  </div></div>`;
+}
+function trLive() {
+  const s = trScore(), ko = !!s.ko.length;
+  $("trPlate").className = "trplate" + (ko ? " ko" : ""); $("trPts").textContent = ko ? "K.o." : s.pts; $("trKl").textContent = ko ? "–" : s.klasse;
+  $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span>${s.offen.length ? s.offen.length + " Fragen offen" : esc(s.vorschlag)}</span>`;
+  if ($("trProt")) $("trProt").textContent = trProtokoll(s, TR.status || s.vorschlag);
+}
+function trBind() {
+  $("trBody").querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => { TR.step = Number(b.dataset.go); trRender(); $("trBody").scrollTop = 0; }));
+  $("trBody").querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.q, v = b.dataset.v;
+    if (TR.ans[k] === v) delete TR.ans[k]; else TR.ans[k] = v;
+    TR.from.delete(k); TR.dirty = true;
+    const box = b.closest(".trq"), q = trCfg.fragen.find((x) => x.k === k);
+    box.querySelectorAll("[data-q]").forEach((x) => x.classList.toggle("on", TR.ans[k] === x.dataset.v));
+    box.classList.toggle("ko", !!(q.o.find((o) => o[0] === TR.ans[k]) || [])[3]);
+    const ft = box.querySelector(".fromtag"); if (ft) ft.remove();
+    trLive();
+  }));
+  $("trBody").querySelectorAll("[data-t]").forEach((i) => i.addEventListener("input", () => { TR.txt[i.dataset.t] = i.value; TR.dirty = true; trLive(); }));
+  if ($("trNotiz")) $("trNotiz").addEventListener("input", (e) => { TR.notiz = e.target.value; TR.dirty = true; trLive(); });
+  if ($("trSt")) $("trSt").querySelectorAll("[data-st]").forEach((b) => b.addEventListener("click", () => { TR.status = b.dataset.st; TR.dirty = true; $("trSt").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); trLive(); }));
+}
+function trPayload(extra) {
+  const s = trScore(), st = TR.status || s.vorschlag, l = TR.lead;
+  return { id: l.lead_id, name: l.name, region: trRegion(l.kampagne), kampagne: l.kampagne, antworten: TR.ans, texte: TR.txt, notiz: TR.notiz,
+    punkte: s.pts, klasse: s.klasse, ko: s.ko, status: st, dauer_sek: trElapsed(), protokoll: trProtokoll(s, st), ...extra };
+}
+async function trDraft(quiet) {
+  if (!TR || !TR.dirty) return true;
+  if (TR.saved && !TR.saved.entwurf) return true; // fertige Gespräche nur über „an LeadTable senden“ ändern
+  try { const r = await api("transa_save", trPayload({ entwurf: true })); TR.saved = r.gespraech; TR.dirty = false; if (!quiet) toast("Entwurf gespeichert – beim nächsten Anruf geht es hier weiter"); return true; }
+  catch (e) { toast("Entwurf nicht gespeichert: " + e.message, true); return false; }
+}
+function trClose() { clearInterval(trTick); $("trOv").classList.remove("show"); TR = null; }
+async function trCloseSave() { if (TR) { if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } await trDraft(true); } trClose(); }
+async function trFinal() {
+  const s = trScore(), ko = !!s.ko.length;
+  if (s.offen.length && !ko) { toast(`Noch offen: Frage ${s.offen.join(", ")} – oder „Später weiter“`, true); TR.step = 2; trRender(); return; }
+  if (TR.start) { TR.dauer = trElapsed(); TR.start = null; }
+  const l = TR.lead, st = TR.status || s.vorschlag, btn = $("trSave");
+  btn.disabled = true; btn.textContent = "Wird gesendet …";
+  let schritt = "Gespräch speichern";
+  try {
+    const pl = trPayload({ entwurf: false });
+    const r0 = await api("transa_save", pl); TR.saved = r0.gespraech;
+    schritt = "Beschreibung in LeadTable";
+    const fresh = await api("lead_get", { id: l.lead_id }); const base = fresh.lead.description || "";
+    await api("lead_description", { id: l.lead_id, text: (base.trim() ? base.trim() + "\n\n" : "") + pl.protokoll, base });
+    schritt = "Status in LeadTable";
+    if (norm(fresh.lead.status) !== norm(st)) await api("lead_status", { id: l.lead_id, status: st, followup: null });
+    schritt = "Übertragung vermerken";
+    await api("transa_save", { id: l.lead_id, lt_ok: true });
+  } catch (e) {
+    try { await api("transa_save", { id: l.lead_id, lt_fehler: `${schritt}: ${e.message}` }); } catch {}
+    toast(`${schritt} hat nicht geklappt: ${e.message}. Das Gespräch ist gespeichert – nochmal senden.`, true);
+    btn.disabled = false; btn.textContent = "Nochmal an LeadTable senden";
+    return;
+  }
+  toast(`${l.name || "Bewerber"}: ${st} – in LeadTable eingetragen`);
+  trClose();
+  try { await loadWork(); loadStats(); if (selId === l.lead_id) { const r = await api("lead_get", { id: l.lead_id }); cur = r.lead; renderCard(r); } } catch {}
+}
+$("trSteps").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && TR) { TR.step = Number(b.dataset.s); trRender(); $("trBody").scrollTop = 0; } });
+$("trClockBtn").addEventListener("click", () => { if (!TR) return; if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } else TR.start = Date.now(); trRender(); });
+$("trClose").addEventListener("click", trCloseSave);
+$("trLater").addEventListener("click", async () => { if (!TR) return; if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } TR.dirty = true; if (await trDraft()) trClose(); });
+$("trNe").addEventListener("click", async () => { if (!TR) return; const l = TR.lead; await trCloseSave(); if (cur && cur.lead_id === l.lead_id) setStatus(nextNE(cur.status)); });
+$("trSave").addEventListener("click", trFinal);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("trOv").classList.contains("show")) trCloseSave(); });
+
+// Scoring-Übersicht aller Transa-Gespräche
+let trListData = [];
+async function openTrList() {
+  $("trListOv").classList.add("show"); $("trListBody").innerHTML = `<tr><td colspan="9"><div class="sk"><i></i><i></i></div></td></tr>`;
+  try { const r = await api("transa_list"); trListData = r.gespraeche || []; trListRender(); }
+  catch (e) { $("trListBody").innerHTML = `<tr><td colspan="9" class="empty">${esc(e.message)}</td></tr>`; }
+}
+function trListRender() {
+  const reg = $("trLReg").value, kl = $("trLKl").value;
+  const regs = [...new Set(trListData.map((g) => g.region).filter(Boolean))].sort();
+  if ($("trLReg").options.length !== regs.length + 1) { $("trLReg").innerHTML = `<option value="">Alle Regionen</option>` + regs.map((r) => `<option>${esc(r)}</option>`).join(""); $("trLReg").value = reg; }
+  const fertig = trListData.filter((g) => !g.entwurf), c = (s) => fertig.filter((g) => g.status === s).length;
+  $("trLSum").innerHTML = `<span><b>${fertig.length}</b> Gespräche</span><span><b>${c("Qualifiziert")}</b> qualifiziert</span><span><b>${c("Nicht qualifiziert")}</b> nicht qualifiziert</span><span><b>${trListData.length - fertig.length}</b> Entwürfe</span>`;
+  const rows = trListData.filter((g) => (!reg || g.region === reg) && (!kl || (kl === "E" ? g.entwurf : !g.entwurf && g.klasse === kl)))
+    .sort((a, b) => (a.entwurf - b.entwurf) || ((a.klasse === "K.o.") - (b.klasse === "K.o.")) || (b.punkte || 0) - (a.punkte || 0));
+  const o = (g, k) => { const q = TR_DEF.fragen.find((x) => x.k === k), x = q && q.o.find((y) => y[0] === (g.antworten || {})[k]); return x ? x[1] : "–"; };
+  $("trListBody").innerHTML = rows.length ? rows.map((g) => `<tr data-id="${esc(g.lead_id)}">
+    <td>${g.entwurf ? `<span class="pill">Entwurf</span>` : `<span class="trmini${g.klasse === "K.o." ? " ko" : ""}">${esc(g.klasse || "")}</span>`}</td><td class="num">${g.klasse === "K.o." || g.entwurf ? "–" : g.punkte ?? "–"}</td>
+    <td><b>${esc(g.name || "")}</b></td><td>${esc(g.region || "")}</td><td>${esc((g.texte || {}).anfahrt || "")}</td><td>${esc(o(g, "adr"))}</td><td>${esc(o(g, "start"))}</td>
+    <td>${pillFor(g.lt_status || g.status || "")}${g.lt_fehler ? ` <span class="pill stop" title="${esc(g.lt_fehler)}">nicht übertragen</span>` : ""}</td>
+    <td class="num">${new Date(g.updated_at).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })} · ${Math.round((g.dauer_sek || 0) / 60)} Min.</td></tr>`).join("")
+    : `<tr><td colspan="9" class="empty">${trListData.length ? "Keine Gespräche in dieser Auswahl." : "Noch keine Gespräche. Sie erscheinen hier, sobald du das erste Transa-Gespräch speicherst."}</td></tr>`;
+  $("trListBody").querySelectorAll("tr[data-id]").forEach((tr) => tr.addEventListener("click", () => { $("trListOv").classList.remove("show"); openLead(tr.dataset.id); }));
+}
+$("trOvBtn").addEventListener("click", openTrList);
+$("trListClose").addEventListener("click", () => $("trListOv").classList.remove("show"));
+$("trLReg").addEventListener("change", trListRender); $("trLKl").addEventListener("change", trListRender);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("trListOv").classList.contains("show")) $("trListOv").classList.remove("show"); });
 async function saveNote() {
   const t = $("noteText").value.trim(); if (!t) return;
   $("noteSave").disabled = true;
