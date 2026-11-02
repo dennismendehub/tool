@@ -946,6 +946,8 @@
         <button data-f="neu">Neu</button>
         <button data-f="ne">Nicht erreicht</button>
         <button data-f="ptplan" title="Alle mit Status „Probetag vereinbaren“ – Termin noch abstimmen">Probetag planen <span class="segn" id="ptN"></span></button>
+        <button class="tr-only" data-f="qual" title="Transa-Bewerber mit Status „Qualifiziert“ – über „Alle Kampagnen“ je Region">Qualifiziert <span class="segn" id="qualN"></span></button>
+        <button class="tr-only" data-f="nq" title="Transa-Bewerber mit Status „Nicht qualifiziert“ – über „Alle Kampagnen“ je Region">Nicht qualifiziert <span class="segn" id="nqN"></span></button>
       </div>
       <select class="inp" id="campFilter"><option value="">Alle Kampagnen</option></select>
     </div>
@@ -1473,7 +1475,21 @@ function liHtml(l, extra, right) {
 function miniHtml(l, right) {
   return `<button class="li ${l.lead_id === selId ? "on" : ""}" data-id="${l.lead_id}"><span style="min-width:0"><b>${esc(l.name || "Ohne Namen")}</b><span class="sub">${esc(l.kampagne)}</span></span><span class="rt">${right}</span></button>`;
 }
+// Transa: Listen „Qualifiziert“ / „Nicht qualifiziert“ (Status aus LeadTable, mit Punkten aus dem Gespräch)
+let TRQ = null;
+const QST = { qual: "Qualifiziert", nq: "Nicht qualifiziert" };
+const trqList = (f) => (TRQ || []).filter((l) => l.status === QST[f]);
+async function loadTrq() {
+  if (BER !== "transa") return;
+  try {
+    const r = await api("transa_status_liste"); TRQ = r.leads || [];
+    const n1 = trqList("qual").length, n2 = trqList("nq").length;
+    $("qualN").textContent = n1 || ""; $("qualN").hidden = !n1; $("nqN").textContent = n2 || ""; $("nqN").hidden = !n2;
+    if (QST[qf]) renderQueue();
+  } catch (e) { if (QST[qf]) toast(e.message, true); }
+}
 function filtered() {
+  if (!searchRes && QST[qf]) { let Q = trqList(qf); if (campF) Q = Q.filter((l) => l.kampagne === campF); return Q; }
   let L = searchRes ?? (qf === "ptplan" ? (W.probetag_planen || []) : W.arbeitsliste);
   if (!searchRes) {
     const now = new Date();
@@ -1487,6 +1503,7 @@ function filtered() {
 }
 function renderQueue() {
   const L = filtered();
+  if (!searchRes && QST[qf]) return renderTrq(L);
   const pt = !searchRes && qf === "ptplan", base = pt ? (W.probetag_planen || []) : W.arbeitsliste;
   $("listTitle").textContent = (searchRes ? "Suchergebnis" : pt ? "Probetag planen" : "Heute anrufen") + (!searchRes && BER !== "ihro" ? " · " + BER_NAME[BER] : "");
   $("listNote").textContent = searchRes ? `${L.length} Treffer` : pt ? `${L.length} offen · älteste zuerst` : `${L.length} von ${W.arbeitsliste.length}`;
@@ -1497,6 +1514,18 @@ function renderQueue() {
     : `<div class="empty">${pt ? "Niemand auf „Probetag vereinbaren“. Alles geplant." : searchRes ? "Niemand gefunden. Suche nach Vor- oder Nachname, den letzten Ziffern der Nummer oder der E-Mail." : W.leads_gesamt === 0 ? "Noch keine Bewerber geladen. Einstellungen → Bewerber aus LeadTable abgleichen." : "Hier ist gerade niemand. Gute Arbeit."}</div>`;
   const camps = [...new Set(base.map((l) => l.kampagne))].sort();
   const sel = $("campFilter"), keep = sel.value;
+  sel.innerHTML = `<option value="">Alle Kampagnen</option>` + camps.map((c) => `<option ${c === keep ? "selected" : ""}>${esc(c)}</option>`).join("");
+}
+function renderTrq(L) {
+  const base = trqList(qf), q = qf === "qual";
+  $("listTitle").textContent = QST[qf] + " · Transa" + (campF ? " · " + campF.replace(/^T_Transa[_ ]*/i, "") : "");
+  $("listNote").textContent = TRQ ? `${L.length}${campF ? " von " + base.length : ""}` : "wird geladen …";
+  $("clearSearch").hidden = true; $("qFilter").style.display = "";
+  const kl = (l) => { const g = l.gespraech; if (!g) return `<span class="pill">ohne Gespräch</span>`; return g.klasse === "K.o." || (g.ko && g.ko.length) ? `<span class="trmini ko">K.o.</span>` : `<span class="trmini">${esc(g.klasse || "")}</span> <span class="hintline" style="margin:0">${g.punkte ?? ""} P.</span>`; };
+  const sub = (l) => { const g = l.gespraech, ko = g && g.ko && g.ko.length ? " · " + g.ko.join(", ") : ""; return esc(String(l.kampagne || "").replace(/^T_Transa[_ ]*/i, "")) + (g && g.texte && g.texte.anfahrt ? " · " + esc(g.texte.anfahrt) : "") + esc(ko); };
+  $("queue").innerHTML = !TRQ ? `<div class="sk"><i></i><i></i></div>` : L.length ? L.map((l) => liHtml(l, sub(l), `${kl(l)}<span class="age">${rel(l.last_status_change || l.lead_created_at)}</span>`)).join("")
+    : `<div class="empty">${q ? "Noch niemand qualifiziert" : "Noch niemand als nicht qualifiziert eingestuft"}${campF ? " in dieser Region" : ""}.</div>`;
+  const camps = [...new Set(base.map((l) => l.kampagne))].sort(), sel = $("campFilter"), keep = sel.value;
   sel.innerHTML = `<option value="">Alle Kampagnen</option>` + camps.map((c) => `<option ${c === keep ? "selected" : ""}>${esc(c)}</option>`).join("");
 }
 function renderSide() {
@@ -1518,7 +1547,7 @@ async function loadWork() {
     if (!window._wvAt || Date.now() - window._wvAt > 300000) { window._wvAt = Date.now(); try { await api("wiedervorlagen"); } catch {} }
     WALL = await api("work");
     for (const x of NEUE_STATUS) if (!(WALL.status_liste || []).some((y) => norm(y) === norm(x))) (WALL.status_liste = WALL.status_liste || []).push(x);
-    applyBereich(); renderWork();
+    applyBereich(); renderWork(); loadTrq();
   } catch (e) { if (e.message !== "Nicht eingerichtet") toast(e.message, true); }
 }
 // ---------- Bereiche: Ihro / Transa / HeyRecruit ----------
@@ -1544,7 +1573,10 @@ function applyBereich() {
 }
 function setBereich(b) {
   if (b === BER) return;
-  BER = b; campF = ""; if (!searchRes) { selId = null; cur = null; document.body.classList.remove("mcard"); }
+  BER = b; campF = "";
+  if (QST[qf] && b !== "transa") { qf = "alle"; $("qFilter").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.f === "alle")); }
+  if (b === "transa") loadTrq();
+  if (!searchRes) { selId = null; cur = null; document.body.classList.remove("mcard"); }
   applyBereich(); renderWork();
   $("tabs").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.v === "vWork" && (x.dataset.b || "ihro") === BER));
   if (!searchRes) $("card").innerHTML = `<div class="placeholder"><b>${BER_NAME[BER]}</b><span>Links einen Bewerber auswählen.</span></div>`;
@@ -2229,7 +2261,7 @@ async function trFinal() {
   toast(`${l.name || "Bewerber"}: ${st} – in LeadTable eingetragen`);
   TR.sending = false; btn.disabled = false;
   trClose();
-  try { await loadWork(); loadStats(); if (selId === l.lead_id) { const r = await api("lead_get", { id: l.lead_id }); cur = r.lead; renderCard(r); } } catch {}
+  try { await loadWork(); loadStats(); loadTrq(); if (selId === l.lead_id) { const r = await api("lead_get", { id: l.lead_id }); cur = r.lead; renderCard(r); } } catch {}
 }
 $("trSteps").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && TR) { TR.step = Number(b.dataset.s); trRender(); $("trBody").scrollTop = 0; } });
 $("trClockBtn").addEventListener("click", () => { if (!TR) return; if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } else TR.start = Date.now(); trRender(); });
