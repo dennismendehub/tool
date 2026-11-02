@@ -2012,15 +2012,16 @@ function confirmDiscard() { toast("Erst speichern oder verwerfen", true); return
 // Protokoll unter die LeadTable-Beschreibung (lead_description), Status setzen (lead_status).
 const TR_DEF = {
   schwelle: 55, a_ab: 75,
-  begruessung: "„Guten Tag {anrede}, hier ist Dennis Mende von der Spedition Ihro aus Neuenstein. Sie haben sich für unser Gefahrgut-Projekt beworben. Passen gerade zehn Minuten?“",
+  begruessung: "„Guten Tag {anrede}, hier ist Dennis Mende von Talentjagd. Sie haben sich bei mir als Fernfahrer beworben. Passen gerade zehn Minuten?“",
   projekt: [
-    "Ihro fährt ab voraussichtlich Anfang 2027 für einen Auftraggeber Gefahrgut, auch Klasse 1 (explosive Stoffe).",
+    "Ich suche für einen Kunden von mir, eine Spedition, Fahrer für ein großes neues Projekt.",
+    "Start voraussichtlich Anfang 2027. Transportiert wird Gefahrgut, auch Klasse 1 (explosive Stoffe).",
     "Fernverkehr: Montag bis Freitag unterwegs, überwiegend in Deutschland, gelegentlich grenznahes Ausland, keine längeren Auslandsaufenthalte.",
     "Ihr LKW steht in Ihrer Region; den genauen Abstellort legen wir gerade fest.",
-    "3.600 € brutto im Monat, die ADR-Schulungen bezahlen wir.",
-    "Weil Klasse 1 transportiert wird, gibt es eine Zuverlässigkeitsprüfung durch den Auftraggeber.",
+    "3.600 € brutto im Monat, die ADR-Schulungen werden bezahlt.",
+    "Weil Klasse 1 transportiert wird, gibt es eine Zuverlässigkeitsprüfung.",
   ],
-  offen: "Noch nicht zusagen: genauer Starttermin, Abstellort, Spesen, Arbeitgeber, Schulungstermine. Antwort: „Das klären wir gerade final mit dem Auftraggeber, Sie bekommen es schriftlich mit dem Angebot.“",
+  offen: "Den Namen der Spedition noch nicht nennen. Noch nicht zusagen: genauer Starttermin, Abstellort, Spesen, Schulungstermine. Antwort: „Das klären wir gerade final mit meinem Kunden, Sie bekommen es schriftlich mit dem Angebot.“",
   abschluss: [
     "E-Mail-Adresse bestätigen: „Sie bekommen heute noch eine E-Mail mit den Projektinfos und den Unterlagen, die wir brauchen.“",
     "„Sobald der Abstellort für Ihre Region feststeht, schicken wir Ihnen das konkrete Angebot und rufen Sie an.“",
@@ -2046,6 +2047,7 @@ const TR_DEF = {
   ],
 };
 const TR_STATI = ["Qualifiziert", "Nicht qualifiziert"];
+const TR_DANKE = "Guten Tag,\n\nvielen Dank für das nette Gespräch! Wie besprochen bekommen Sie in Kürze eine E-Mail mit den weiteren Infos zum Projekt.\n\nBei Fragen erreichen Sie mich jederzeit hier per WhatsApp oder telefonisch unter 0175 1009 008.\n\nViele Grüße\nDennis Mende, Talentjagd";
 const TR_REG = [["fulda", "Fulda/Bad Hersfeld", /fulda|hersfeld/i], ["ruhr", "Ruhrgebiet", /ruhr/i], ["rheinmain", "Rhein-Main", /rhein[\s-]*main/i], ["osnabrueck", "Raum Osnabrück", /osnabr/i], ["halle", "Halle/Leipzig", /halle|leipzig/i]];
 const trRegion = (k) => (TR_REG.find((r) => r[2].test(k || "")) || [null, "Allgemein"])[1];
 let TR = null, trTick = null, trCfg = null;
@@ -2280,7 +2282,10 @@ function nextLead(dir = 1) {
 function sendDanke(l) {
   const tel = l && (l.phone || l.telefon);
   if (!tel) { toast("Keine Telefonnummer vorhanden", true); return; }
-  const text = fill(W.danke_vorlage || "Hallo {vorname},\n\nvielen Dank für das nette Gespräch!\n\n{kontaktdaten}", { name: l.name, phone: tel, kampagne: l.kampagne }, { kontaktdaten: W.kontaktdaten || "" });
+  // Transa läuft über Talentjagd: eigener Text, keine Ihro-Kontaktdaten
+  const tr = berL(l) === "transa";
+  const text = tr ? fill(TR_DANKE, { name: l.name, phone: tel, kampagne: l.kampagne })
+    : fill(W.danke_vorlage || "Hallo {vorname},\n\nvielen Dank für das nette Gespräch!\n\n{kontaktdaten}", { name: l.name, phone: tel, kampagne: l.kampagne }, { kontaktdaten: W.kontaktdaten || "" });
   window.open(`https://wa.me/${waNumber(tel)}?text=${encodeURIComponent(text)}`, "_blank");
 }
 
