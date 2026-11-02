@@ -1684,7 +1684,7 @@ function fill(tpl, l, extra = {}) {
   return String(tpl || "").replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
 }
 async function openLead(id) {
-  stopRec();
+  stopRec(true);
   selId = id;
   if (window.matchMedia("(max-width:860px)").matches) { document.body.classList.add("mcard"); window.scrollTo({ top: 0 }); }
   document.querySelectorAll(".li").forEach((b) => b.classList.toggle("on", b.dataset.id === id));
@@ -1982,20 +1982,34 @@ function openDictate() {
   if (SR) toggleRec(); else $("dictText").focus();
 }
 function closeDictate() { stopRec(); if ($("dictBox")) { $("dictBox").hidden = true; $("dictOpen").hidden = false; } }
-function stopRec() { recOn = false; try { rec && rec.stop(); } catch {} if ($("dictMic")) $("dictMic").classList.remove("rec"); }
-function toggleRec() {
-  if (!SR) return;
-  if (recOn) { stopRec(); $("dictHint").textContent = "Aufnahme beendet. Prüfen und dann von Claude formulieren lassen."; return; }
-  rec = new SR(); rec.lang = "de-DE"; rec.continuous = true; rec.interimResults = true;
-  recBase = $("dictText").value.trim(); recOn = true; $("dictMic").classList.add("rec"); $("dictHint").textContent = "Hört zu …";
-  rec.onresult = (e) => {
+// Jede Aufnahme bekommt eine eigene Erkennung; Nachzügler-Ereignisse einer alten Aufnahme werden ignoriert
+// (vorher hat das späte „Ende“ der ersten Aufnahme die zweite abgewürgt).
+function stopRec(sofort) {
+  recOn = false; const r = rec; rec = null;
+  if (r) { r.onend = null; r.onerror = null; try { sofort ? r.abort() : r.stop(); } catch {} if (sofort) r.onresult = null; }
+  if ($("dictMic")) $("dictMic").classList.remove("rec");
+}
+function startRec() {
+  const r = new SR(); rec = r; r.lang = "de-DE"; r.continuous = true; r.interimResults = true;
+  recBase = ($("dictText") ? $("dictText").value.trim() : "");
+  r.onresult = (e) => {
     let fin = "", tmp = "";
     for (let i = 0; i < e.results.length; i++) (e.results[i].isFinal ? (fin += e.results[i][0].transcript + " ") : (tmp += e.results[i][0].transcript));
     if ($("dictText")) $("dictText").value = (recBase ? recBase + " " : "") + fin + tmp;
   };
-  rec.onerror = (e) => { stopRec(); $("dictHint").textContent = e.error === "not-allowed" ? "Mikrofon nicht erlaubt. Alternativ das Mikrofon der Tastatur benutzen." : "Spracherkennung unterbrochen. Nochmal tippen oder ins Feld schreiben."; };
-  rec.onend = () => { if (recOn) { try { recBase = $("dictText").value.trim(); rec.start(); } catch { stopRec(); } } };
-  try { rec.start(); } catch { stopRec(); }
+  r.onerror = (e) => {
+    if (rec !== r || e.error === "no-speech" || e.error === "aborted") return;
+    stopRec(true); if ($("dictHint")) $("dictHint").textContent = e.error === "not-allowed" ? "Mikrofon nicht erlaubt. Alternativ das Mikrofon der Tastatur benutzen." : "Spracherkennung unterbrochen. Nochmal tippen oder ins Feld schreiben.";
+  };
+  r.onend = () => { if (rec === r && recOn && $("dictText")) { r.onresult = null; startRec(); } else if (rec === r) stopRec(true); };
+  try { r.start(); } catch { stopRec(true); if ($("dictHint")) $("dictHint").textContent = "Mikrofon gerade belegt – bitte nochmal auf das Mikrofon tippen."; }
+}
+function toggleRec() {
+  if (!SR) return;
+  if (recOn) { stopRec(); $("dictHint").textContent = "Aufnahme beendet. Prüfen und dann von Claude formulieren lassen."; return; }
+  stopRec(true);
+  recOn = true; $("dictMic").classList.add("rec"); $("dictHint").textContent = "Hört zu …";
+  startRec();
 }
 async function runDictate() {
   stopRec();
