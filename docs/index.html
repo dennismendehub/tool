@@ -830,6 +830,15 @@
   .trtable td.num{font-variant-numeric:tabular-nums}
   .trtable tr[data-id]{cursor:pointer}.trtable tr[data-id]:hover td{background:var(--fill2)}
   @media (max-width:720px){.trhead,.trsteps,.trlive,#trBody{padding-left:16px;padding-right:16px}.trq.ko{margin:0 -16px;padding-left:16px;padding-right:16px}.trplate{width:80px}.trplate .t{font-size:22px}}
+
+  /* ---------- Tippen ohne Verzögerung (02.11.2026) ----------
+     Der Glas-Effekt (Weichzeichner hinter Fenstern) wird bei jedem Tastendruck neu berechnet – in Dialogen doppelt
+     (Hintergrund + Fenster). Dialoge daher ohne Weichzeichner, und Kästen, in denen gerade getippt wird, auch. */
+  .ov{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:rgba(20,24,36,.4)}
+  .modal{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:rgba(248,248,250,.98)}
+  [data-theme="dark"] .modal{background:rgba(34,34,38,.98)}
+  .panel:focus-within,.glass:focus-within{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:rgba(255,255,255,.95)}
+  [data-theme="dark"] .panel:focus-within,[data-theme="dark"] .glass:focus-within{background:rgba(40,40,46,.97)}
 </style>
 </head>
 <body>
@@ -3907,6 +3916,9 @@ $("refresh").addEventListener("click", () => { loadAll(); if (selId) openLead(se
 let lastDay = todayISO();
 setInterval(() => {
   if (todayISO() !== lastDay) { lastDay = todayISO(); loadAll(); return; }
+  // Nicht neu laden, solange getippt wird oder ein Fenster offen ist – das Neuzeichnen der Listen bremst sonst die Tastatur
+  const ae = document.activeElement, tippt = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable);
+  if (tippt || document.querySelector(".ov.show")) return;
   if (!document.hidden && configured()) { loadStats(); loadWork(); if (view === "vMail") loadMails(); if (view === "vOver" && Date.now() - (loadOverview.t || 0) > 5 * 60e3) loadOverview(); }
 }, 60000);
 // App kommt aus dem Hintergrund (iPhone): sofort alles auffrischen, auch den Überblick
