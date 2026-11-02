@@ -2694,7 +2694,7 @@ function renderSettings() {
     h += `<div class="ssec"><h3>Das weiß Claude über dich</h3><textarea class="inp" id="ctx" style="min-height:110px">${esc(S.kontext)}</textarea></div>`;
   }
   h += `<div class="ssec"><h3>Verbindung</h3><p class="ex">Wird nur auf diesem Gerät gespeichert.</p><div class="f"><label class="full">Supabase Projekt-URL<input class="inp" id="sUrl" value="${esc(cfg.url)}"></label><label class="full">Dashboard-Schlüssel<span class="row" style="gap:6px"><input class="inp" id="sTok" type="password" value="${esc(cfg.token)}" style="flex:1"><button class="btn sm" id="sTokShow" type="button">anzeigen</button><button class="btn sm" id="sTokCopy" type="button">kopieren</button></span></label></div>
-    ${configured() ? `<button class="btn sm" id="qrBtn" type="button" style="margin-top:10px">Aufs Handy übertragen (QR-Code)</button>` : ""}</div>`;
+    ${configured() ? `<div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn sm" id="qrBtn" type="button">Aufs Handy übertragen (QR-Code)</button><button class="btn sm" id="logoutBtn" type="button">Abmelden</button></div>` : ""}</div>`;
   $("setBody").innerHTML = h;
   if (!S) return;
   $("stList").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) b.parentElement.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); });
@@ -2713,6 +2713,11 @@ function renderSettings() {
     catch (e) { $("pushInfo").textContent = e.message; } finally { $("pushTest").disabled = false; }
   });
   if ($("qrBtn")) $("qrBtn").addEventListener("click", showQr);
+  if ($("logoutBtn")) $("logoutBtn").addEventListener("click", () => {
+    if (!confirm("Auf diesem Gerät abmelden? Der Schlüssel wird hier gelöscht. Zum erneuten Anmelden brauchst du ihn wieder (oder den QR-Code vom anderen Gerät).")) return;
+    try { localStorage.removeItem("tc_token"); } catch {}
+    cfg.token = ""; location.hash = ""; location.reload();
+  });
   $("sTokShow").addEventListener("click", () => { const i = $("sTok"); i.type = i.type === "password" ? "text" : "password"; $("sTokShow").textContent = i.type === "password" ? "anzeigen" : "verbergen"; });
   $("sTokCopy").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("sTok").value.trim()); toast("Schlüssel kopiert"); } catch { toast("Kopieren ging nicht – bitte „anzeigen“ und von Hand kopieren", true); } });
   $("syncBtn").addEventListener("click", async () => {
