@@ -955,7 +955,7 @@
         <button class="tr-only" data-f="nq" title="Transa-Bewerber mit Status „Nicht qualifiziert“ – über „Alle Kampagnen“ je Region">Nicht qualifiziert <span class="segn" id="nqN"></span></button>
       </div>
       <select class="inp" id="campFilter"><option value="">Alle Kampagnen</option></select>
-      <select class="inp tr-only" id="trSort" title="Reihenfolge der Transa-Anrufliste"><option value="passung">Sortieren: Passung (beste zuerst)</option><option value="alter">Sortieren: Alter (älteste Bewerbung zuerst)</option><option value="neu">Sortieren: neueste Bewerbung zuerst</option></select>
+      <select class="inp tr-only" id="trSort" title="Reihenfolge der Transa-Anrufliste"><option value="passung">Sortieren: Passung, je Stufe älteste zuerst</option><option value="alter">Sortieren: Alter (älteste Bewerbung zuerst)</option><option value="neu">Sortieren: neueste Bewerbung zuerst</option></select>
     </div>
     <div class="llist" id="queue"><div class="sk"><i></i><i></i><i></i></div></div>
   </section>
@@ -1511,11 +1511,12 @@ function passung(l) {
 const PSTUFE = { hoch: "Passung hoch", mittel: "Passung mittel", gering: "Passung gering", ko: "K.o." };
 const passTag = (pa) => pa ? `<span class="pass p-${pa.stufe}" title="Vorab aus dem Formular: ${pa.p} von 50 Punkten${pa.ko.length ? " · " + pa.ko.join(", ") : ""}">${pa.stufe === "ko" ? "K.o.: " + esc(pa.ko.join(", ")) : PSTUFE[pa.stufe]}</span> ` : "";
 const trListMode = () => BER === "transa" && !searchRes && !QST[qf] && qf !== "ptplan";
+const RANG = { hoch: 0, mittel: 1, gering: 2, ko: 4 }, rang = (pa) => pa ? RANG[pa.stufe] : 3; // Passung hoch → mittel → gering → ohne Formular; je Stufe älteste Bewerbung zuerst
 function trSortList(L) {
   const ts = (l) => new Date(l.lead_created_at || l.last_status_change || 0).getTime();
   const w = L.map((l) => ({ l, pa: passung(l) }));
   w.sort((a, b) => ((a.pa && a.pa.stufe === "ko") - (b.pa && b.pa.stufe === "ko")) ||
-    (trSort === "alter" ? ts(a.l) - ts(b.l) : trSort === "neu" ? ts(b.l) - ts(a.l) : ((b.pa ? b.pa.p : -1) - (a.pa ? a.pa.p : -1)) || ts(a.l) - ts(b.l)));
+    (trSort === "alter" ? ts(a.l) - ts(b.l) : trSort === "neu" ? ts(b.l) - ts(a.l) : (rang(a.pa) - rang(b.pa)) || ts(a.l) - ts(b.l)));
   return w.map((x) => x.l);
 }
 function filtered() {
@@ -1541,7 +1542,8 @@ function renderQueue() {
   $("clearSearch").hidden = !searchRes;
   $("qFilter").style.display = searchRes ? "none" : "";
   if (trListMode() && L.length) {
-    const sub = (l, pa) => passTag(pa) + (l.followup_at && new Date(l.followup_at) <= new Date() ? `Wiedervorlage ${when(l.followup_at)}` : esc(String(l.kampagne || "").replace(/^T_Transa[_ ]*/i, "")));
+    const wo = (l) => { const f = trAnswersMap({ answers: (l.answers && l.answers.length ? l.answers : TRA[l.lead_id]) || [] }); const o = [f.wohnort, f.ort].find((x) => x && !REGWORT.test(x)) || ""; return [f.plz, o.replace(/ \(aus PLZ\)$/, "")].filter(Boolean).join(" "); };
+    const sub = (l, pa) => passTag(pa) + (l.followup_at && new Date(l.followup_at) <= new Date() ? `Wiedervorlage ${when(l.followup_at)}` : esc(String(l.kampagne || "").replace(/^T_Transa[_ ]*/i, "")) + (wo(l) ? " · " + esc(wo(l)) : ""));
     const ok = [], ko = [];
     for (const l of L) { const pa = passung(l); (pa && pa.stufe === "ko" ? ko : ok).push(liHtml(l, sub(l, pa))); }
     $("queue").innerHTML = ok.join("") + (ko.length ? `<div class="lidiv">K.o. laut Formular · ${ko.length}<span>kein CE oder kein Wohnsitz in Deutschland – kurz prüfen, ob die Angabe stimmt</span></div>` + ko.join("") : "");
@@ -1677,7 +1679,7 @@ const telHref = (p) => "tel:" + String(p || "").replace(/[^\d+]/g, "");
 function waNumber(p) { let d = String(p || "").replace(/\D/g, ""); if (d.startsWith("00")) d = d.slice(2); else if (d.startsWith("0")) d = "49" + d.slice(1); return d; }
 function fill(tpl, l, extra = {}) {
   const vor = String(l.name || "").trim().split(/\s+/)[0] || "";
-  const ans = (l.answers || []).map((a) => `${String(a.q).replace(/[?:]\s*$/, "")}: ${a.a}`).join("\n");
+  const ans = ansMit(l.answers).map((a) => `${String(a.q).replace(/[?:]\s*$/, "")}: ${a.a}`).join("\n");
   const v = { name: l.name || "", vorname: vor, kampagne: l.kampagne || "", telefon: l.phone || "", email: l.email || "", antworten: ans, ...extra };
   return String(tpl || "").replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
 }
@@ -1761,7 +1763,7 @@ function renderCard(r) {
       <textarea class="inp" id="noteText" placeholder="Was ist besprochen? Landet in LeadTable unter „Notizen“ (Verlauf)."></textarea>
       <div class="row" style="margin-top:8px;justify-content:space-between"><span class="hintline">${l.last_note ? `Letzte Notiz ${rel(l.last_note_at)}: ${esc(l.last_note).slice(0, 120)}` : ""}</span><button class="btn blue sm" id="noteSave">Notiz speichern</button></div>
     </div>
-    ${(l.answers || []).length ? `<div class="sec"><h3>Angaben aus der Bewerbung</h3><dl class="answers">${l.answers.map((a) => `<dt>${esc(a.q)}</dt><dd>${esc(a.a)}</dd>`).join("")}</dl></div>` : ""}
+    ${(l.answers || []).length ? `<div class="sec"><h3>Angaben aus der Bewerbung</h3><dl class="answers">${ansMit(l.answers).map((a) => `<dt>${esc(a.q)}</dt><dd>${esc(a.a)}</dd>`).join("")}</dl></div>` : ""}
     <div class="sec"><h3>Verlauf</h3><div class="hist" id="hist">${(r.verlauf || []).map((h) => `<div class="h"><span>${new Date(h.received_at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>${esc(/new/i.test(h.event) ? "Neue Bewerbung" : "Status: " + (h.status || ""))}</span></div>`).join("") || `<span class="empty">Im Dashboard noch nichts erfasst.</span>`}</div>
       <button class="btn sm" id="histLoad" style="margin-top:10px">Kompletten Verlauf aus LeadTable laden</button></div>
     <div class="keys"><span><kbd>?</kbd> alle Kürzel</span><span><kbd>␣</kbd> anrufen</span><span><kbd>1</kbd>–<kbd>6</kbd> Ergebnis</span><span><kbd>N</kbd> nächster</span><span><kbd>↑</kbd><kbd>↓</kbd> Liste</span><span><kbd>W</kbd> WhatsApp</span><span><kbd>D</kbd> Danke-WhatsApp</span><span><kbd>B</kbd> Beschreibung</span><span><kbd>P</kbd> Probetag</span></div>`;
@@ -2133,7 +2135,21 @@ const trRegion = (k) => (TR_REG.find((r) => r[2].test(k || "")) || [null, "Allge
 let TR = null, trTick = null, trCfg = null;
 const isTransa = (l) => l && berL(l) === "transa";
 
-function trAnswersMap(l) { const m = {}; for (const a of l.answers || []) m[String(a.q).toLowerCase()] = String(a.a ?? "").trim(); return m; }
+// Ort zur PLZ für Bewerber, bei denen das Formular anfangs nur die PLZ (bzw. „ruhr“, „nordwest“ …) geliefert hat (Stand 02.11.2026, Quelle OpenStreetMap-PLZ-Daten)
+const PLZ_ORT = { "06712": "Zeitz / Umgebung", "09306": "Rochlitz / Umgebung", "34127": "Kassel / Fuldatal", "35469": "Allendorf (Lumda)", "42389": "Wuppertal",
+  "44135": "Dortmund", "44143": "Dortmund", "49584": "Fürstenau", "64739": "Höchst im Odenwald", "74613": "Öhringen" };
+const REGWORT = /^(mitte|osten|westen|norden|sueden|süden|nord|süd|sued|west|ost|nordwest|nordost|südwest|suedwest|südost|suedost|ruhr|ruhrgebiet|rheinmain|rhein-main)$/i;
+function ansMit(answers) {
+  const A = (answers || []).slice(), pz = A.find((a) => /^plz$/i.test(String(a.q)));
+  const name = pz && PLZ_ORT[String(pz.a).replace(/\D/g, "").slice(0, 5)];
+  if (!name) return A;
+  const i = A.findIndex((a) => /^(ort|wohnort)$/i.test(String(a.q)) && !REGWORT.test(String(a.a ?? "").trim()));
+  if (i >= 0) return A;
+  const j = A.findIndex((a) => /^(ort|wohnort)$/i.test(String(a.q)));
+  if (j >= 0) A[j] = { q: A[j].q, a: name + " (aus PLZ)" }; else A.splice(A.indexOf(pz) + 1, 0, { q: "ort", a: name + " (aus PLZ)" });
+  return A;
+}
+function trAnswersMap(l) { const m = {}; for (const a of ansMit(l.answers)) m[String(a.q).toLowerCase()] = String(a.a ?? "").trim(); return m; }
 function trPrefill(l) {
   const f = trAnswersMap(l), a = {}, t = {};
   if (f.fuehrerschein_ce) a.ce = f.fuehrerschein_ce === "ja" ? "ja" : "nein";
