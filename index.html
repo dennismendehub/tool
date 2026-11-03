@@ -2021,8 +2021,11 @@ async function runDictate() {
     if (!cur || cur.lead_id !== id) return;
     const dt = $("descText"); const now = dt.value.trim();
     dt.value = (now ? now + "\n" : "") + r.text; dt.dispatchEvent(new Event("input"));
-    closeDictate(); dt.focus(); dt.scrollIntoView({ behavior: "smooth", block: "center" });
-    toast("Ergänzt – kurz prüfen und „Beschreibung speichern“");
+    closeDictate(); dt.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Diktat gleich in LeadTable speichern (vorher musste man extra „Beschreibung speichern“ tippen – leicht zu übersehen)
+    if ($("dictGo")) { $("dictGo").disabled = false; $("dictGo").textContent = "Claude formulieren lassen"; }
+    await saveDesc();
+    return;
   } catch (e) { toast(e.message, true); }
   if ($("dictGo")) { $("dictGo").disabled = false; $("dictGo").textContent = "Claude formulieren lassen"; }
 }
