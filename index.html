@@ -641,6 +641,7 @@
   .done-state b{display:block;font-family:var(--disp);font-size:20px;letter-spacing:-.02em}
   .done-state p{color:var(--muted);margin:6px 0 0}
 
+  .dictrest{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:70;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;width:min(560px,calc(100vw - 24px));padding:10px 12px;border-radius:14px;background:var(--glass-hi);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--beacon);color:var(--ink);box-shadow:0 8px 30px rgba(0,0,0,.18);font-size:14px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,12px);background:rgba(30,30,32,.84);color:#fff;border:0;padding:11px 18px;border-radius:999px;font-weight:600;font-size:14px;opacity:0;transition:.25s cubic-bezier(.2,.9,.25,1);pointer-events:none;z-index:60;max-width:90vw}
   .toast.show{opacity:1;transform:translate(-50%,0)}
   .toast.err{background:rgba(215,0,21,.9)}
@@ -1798,7 +1799,8 @@ function renderCard(r) {
   $("descSave").addEventListener("click", saveDesc);
   $("descReload").addEventListener("click", reloadDesc);
   $("dictOpen").addEventListener("click", openDictate);
-  $("dictCancel").addEventListener("click", closeDictate);
+  $("dictCancel").addEventListener("click", () => { dictVergiss(); closeDictate(); });
+  $("dictText").addEventListener("input", dictMerk);
   $("dictMic").addEventListener("click", toggleRec);
   $("dictGo").addEventListener("click", runDictate);
   $("backList").addEventListener("click", () => { document.body.classList.remove("mcard"); setTimeout(() => { const li = $("queue").querySelector(".li.on"); (li || $("queue")).scrollIntoView({ block: "center" }); }, 30); });
@@ -1974,14 +1976,37 @@ $("wkBody").addEventListener("click", (e) => { const o = e.target.closest("[data
 
 // ---------- Notiz diktieren ----------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, recOn = false, recBase = "";
-function openDictate() {
-  $("dictBox").hidden = false; $("dictOpen").hidden = true; $("dictText").value = "";
+let rec = null, recOn = false, recBase = "", recNeu = 0;
+function openDictate(prefill) {
+  const pre = typeof prefill === "string" ? prefill : "";
+  $("dictBox").hidden = false; $("dictOpen").hidden = true; $("dictText").value = pre;
   $("dictHint").textContent = SR ? "Auf das Mikrofon tippen, sprechen, nochmal tippen zum Beenden." : "Tipp ins Feld und nutze das Mikrofon auf deiner Tastatur.";
   if (!SR) $("dictMic").hidden = true;
+  if (pre) { $("dictHint").textContent = "Wiederhergestellt – prüfen und auf „Claude formulieren lassen“ tippen."; return; }
   if (SR) toggleRec(); else $("dictText").focus();
 }
-function closeDictate() { stopRec(); if ($("dictBox")) { $("dictBox").hidden = true; $("dictOpen").hidden = false; } }
+// Sicherung des Diktats im Gerät: falls das iPhone die Seite neu lädt, ist der Text nicht verloren
+const DKEY = "tc_diktat";
+function dictMerk() {
+  const t = $("dictText"); if (!cur || !t) return;
+  const raw = t.value.trim();
+  try { if (raw) localStorage.setItem(DKEY, JSON.stringify({ id: cur.lead_id, name: cur.name || "", raw, t: Date.now() })); } catch {}
+}
+function dictVergiss() { try { localStorage.removeItem(DKEY); } catch {} }
+function dictOffen() {
+  let d = null; try { d = JSON.parse(localStorage.getItem(DKEY) || "null"); } catch {}
+  if (!d || !d.raw || Date.now() - (d.t || 0) > 24 * 3600e3) return;
+  if ($("dictRestore")) return;
+  const b = document.createElement("div"); b.id = "dictRestore"; b.className = "dictrest";
+  b.innerHTML = `<span>Nicht gespeichertes Diktat bei <b>${esc(d.name || "Bewerber")}</b></span><span class="row" style="gap:6px"><button class="btn sm quiet" id="drNo">Verwerfen</button><button class="btn sm blue" id="drYes">Öffnen</button></span>`;
+  document.body.appendChild(b);
+  $("drNo").addEventListener("click", () => { dictVergiss(); b.remove(); });
+  $("drYes").addEventListener("click", async () => {
+    b.remove(); await openLead(d.id);
+    if (cur && cur.lead_id === d.id && $("dictBox")) { openDictate(d.raw); $("dictBox").scrollIntoView({ behavior: "smooth", block: "center" }); }
+  });
+}
+function closeDictate() { stopRec(true); if ($("dictBox")) { $("dictBox").hidden = true; $("dictOpen").hidden = false; } }
 // Jede Aufnahme bekommt eine eigene Erkennung; Nachzügler-Ereignisse einer alten Aufnahme werden ignoriert
 // (vorher hat das späte „Ende“ der ersten Aufnahme die zweite abgewürgt).
 function stopRec(sofort) {
@@ -1995,25 +2020,33 @@ function startRec() {
   r.onresult = (e) => {
     let fin = "", tmp = "";
     for (let i = 0; i < e.results.length; i++) (e.results[i].isFinal ? (fin += e.results[i][0].transcript + " ") : (tmp += e.results[i][0].transcript));
-    if ($("dictText")) $("dictText").value = (recBase ? recBase + " " : "") + fin + tmp;
+    if ($("dictText")) { $("dictText").value = (recBase ? recBase + " " : "") + fin + tmp; dictMerk(); }
   };
   r.onerror = (e) => {
     if (rec !== r || e.error === "no-speech" || e.error === "aborted") return;
     stopRec(true); if ($("dictHint")) $("dictHint").textContent = e.error === "not-allowed" ? "Mikrofon nicht erlaubt. Alternativ das Mikrofon der Tastatur benutzen." : "Spracherkennung unterbrochen. Nochmal tippen oder ins Feld schreiben.";
   };
-  r.onend = () => { if (rec === r && recOn && $("dictText")) { r.onresult = null; startRec(); } else if (rec === r) stopRec(true); };
+  r.onend = () => {
+    if (rec !== r) return;
+    if (!recOn || !$("dictText")) { stopRec(true); return; }
+    // nach einer Sprechpause neu starten – aber nicht in schneller Schleife (das bringt das iPhone ins Straucheln)
+    recNeu = (recNeu || 0) + 1; r.onresult = null;
+    if (recNeu > 30) { stopRec(true); if ($("dictHint")) $("dictHint").textContent = "Aufnahme pausiert. Zum Weitersprechen nochmal aufs Mikrofon tippen."; return; }
+    setTimeout(() => { if (rec === r && recOn) startRec(); }, 400);
+  };
   try { r.start(); } catch { stopRec(true); if ($("dictHint")) $("dictHint").textContent = "Mikrofon gerade belegt – bitte nochmal auf das Mikrofon tippen."; }
 }
 function toggleRec() {
   if (!SR) return;
   if (recOn) { stopRec(); $("dictHint").textContent = "Aufnahme beendet. Prüfen und dann von Claude formulieren lassen."; return; }
   stopRec(true);
-  recOn = true; $("dictMic").classList.add("rec"); $("dictHint").textContent = "Hört zu …";
+  recOn = true; recNeu = 0; $("dictMic").classList.add("rec"); $("dictHint").textContent = "Hört zu …";
   startRec();
 }
 async function runDictate() {
-  stopRec();
+  stopRec(true);
   const raw = $("dictText").value.trim(); if (!raw) { toast("Noch nichts diktiert", true); return; }
+  dictMerk();
   const id = cur.lead_id;
   $("dictGo").disabled = true; $("dictGo").innerHTML = `<span class="spin"></span>Claude formuliert …`;
   try {
@@ -2024,7 +2057,7 @@ async function runDictate() {
     closeDictate(); dt.scrollIntoView({ behavior: "smooth", block: "center" });
     // Diktat gleich in LeadTable speichern (vorher musste man extra „Beschreibung speichern“ tippen – leicht zu übersehen)
     if ($("dictGo")) { $("dictGo").disabled = false; $("dictGo").textContent = "Claude formulieren lassen"; }
-    await saveDesc();
+    if (await saveDesc()) dictVergiss();
     return;
   } catch (e) { toast(e.message, true); }
   if ($("dictGo")) { $("dictGo").disabled = false; $("dictGo").textContent = "Claude formulieren lassen"; }
@@ -2089,8 +2122,11 @@ async function saveDesc() {
     const r = await api("lead_description", { id, text, base: descBase });
     toast(r.zusammengefuehrt ? "In LeadTable war inzwischen etwas Neues drin – deine Ergänzung wurde angehängt" : "Beschreibung in LeadTable gespeichert");
     if (cur && cur.lead_id === id) { cur.description = r.description; descBase = r.description; $("descText").value = r.description; $("descText").dispatchEvent(new Event("input")); }
+    if ($("descSave")) $("descSave").disabled = false;
+    return true;
   } catch (e) { toast(e.message, true); }
   if ($("descSave")) $("descSave").disabled = false;
+  return false;
 }
 async function reloadDesc() {
   const id = cur.lead_id;
@@ -4085,7 +4121,7 @@ setDate();
     catch (e) { openSetup("Verbindung mit dem QR-Code hat nicht geklappt: " + e.message); return; }
     if (/iphone|ipad|android/i.test(navigator.userAgent) && !(navigator.standalone || matchMedia("(display-mode: standalone)").matches)) $("hsOv").classList.add("show");
   }
-  if (configured()) loadAll(); else openSetup();
+  if (configured()) { loadAll(); setTimeout(dictOffen, 1500); } else openSetup();
 })();
 </script>
 </body>
