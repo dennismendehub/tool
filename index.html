@@ -790,7 +790,11 @@
   /* ---------- Transa: Gesprächsfenster (Leitfaden + Scoring) ---------- */
   body:not([data-ber="transa"]) .tr-only{display:none!important}
   #trOv .modal{max-width:860px}
-  #trOv .modal>.trhead,#trOv .modal>.trsteps,#trOv .modal>.trlive{flex:0 0 auto}
+  #trOv .modal>.trhead,#trOv .modal>.trsteps,#trOv .modal>.trlive,#trOv .modal>.trnote{flex:0 0 auto}
+  .trnote{padding:8px 24px 6px;border-top:.5px solid var(--sep)}
+  .trnote label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .trnote textarea{min-height:44px;max-height:140px;resize:none;font-size:14.5px}
+  @media (max-width:600px){.trnote{padding:6px 14px 4px}}
   #trOv .modal>.trhead{flex-direction:row}
   #trOv .modal>.trlive{flex-direction:row}
   #trOv .modal>#trBody{flex:1 1 auto;min-height:0}
@@ -1135,6 +1139,7 @@
     </div>
     <div class="trsteps"><div class="seg big" id="trSteps"><button type="button" data-s="0">1 Begrüßung</button><button type="button" data-s="1">2 Projekt</button><button type="button" data-s="2">3 Qualifizieren</button><button type="button" data-s="3">4 Abschluss</button></div></div>
     <div class="modal-body" id="trBody"></div>
+    <div class="trnote"><label for="trNotiz">Notizen zum Gespräch</label><textarea class="inp" id="trNotiz" rows="2" placeholder="Jederzeit mitschreiben: Fragen des Bewerbers, Besonderheiten, Rückrufwunsch … (wird mit gespeichert und an LeadTable übertragen)"></textarea></div>
     <div class="trlive" id="trLive"></div>
     <div class="modal-foot"><button class="btn ne" id="trNe" type="button">Nicht erreicht</button><button class="btn quiet" id="trLater" type="button">Später weiter</button><button class="btn quiet" id="trClose" type="button">Schließen</button><span style="flex:1"></span><button class="btn go" id="trSave" type="button">Speichern und an LeadTable senden</button></div>
   </div>
@@ -2290,12 +2295,12 @@ function trRender() {
     ${trCfg.fragen.map((q, i) => trQ(q, i)).join("")}
     <div class="row" style="gap:8px;margin-top:6px"><button class="btn blue" data-go="3">Weiter: Abschluss</button></div>`;
   else h = `<div class="trsay"><ul>${trCfg.abschluss.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p style="margin-top:8px">E-Mail laut Bewerbung: <b>${esc(l.email || "keine – bitte erfragen")}</b></p></div>
-    <label class="trlab" for="trNotiz">Notiz / Fragen des Bewerbers</label><textarea class="inp" id="trNotiz">${esc(TR.notiz)}</textarea>
     <div class="trlab">Ergebnis für LeadTable <span class="hintline" style="margin:0">Vorschlag: ${esc(s.vorschlag)}${s.offen.length && !ko ? ` · noch offen: Frage ${s.offen.join(", ")}` : ""}</span></div>
     <div class="seg big" id="trSt">${TR_STATI.map((x) => `<button type="button" data-st="${esc(x)}" class="${x === st ? "on" : ""}">${esc(x)}</button>`).join("")}</div>
     <details class="trprot"><summary>So landet es in der LeadTable-Beschreibung</summary><pre id="trProt">${esc(trProtokoll(s, st))}</pre></details>
     ${TR.saved && TR.saved.lt_fehler ? `<p class="hintline" style="color:var(--stop-ink)">Letzte Übertragung nach LeadTable fehlgeschlagen: ${esc(TR.saved.lt_fehler)}</p>` : ""}`;
   $("trBody").innerHTML = h;
+  { const tn = $("trNotiz"); if (document.activeElement !== tn && tn.value !== (TR.notiz || "")) { tn.value = TR.notiz || ""; trNoteFit(); } }
   $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span>${s.offen.length ? s.offen.length + " Fragen offen" : esc(s.vorschlag)}</span>`;
   trBind();
 }
@@ -2327,7 +2332,6 @@ function trBind() {
     trLive();
   }));
   $("trBody").querySelectorAll("[data-t]").forEach((i) => i.addEventListener("input", () => { TR.txt[i.dataset.t] = i.value; TR.dirty = true; trLive(); }));
-  if ($("trNotiz")) $("trNotiz").addEventListener("input", (e) => { TR.notiz = e.target.value; TR.dirty = true; trLive(); });
   if ($("trSt")) $("trSt").querySelectorAll("[data-st]").forEach((b) => b.addEventListener("click", () => { TR.status = b.dataset.st; TR.dirty = true; $("trSt").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); trLive(); }));
 }
 function trPayload(extra) {
@@ -2374,6 +2378,9 @@ async function trFinal() {
 $("trSteps").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b && TR) { TR.step = Number(b.dataset.s); trRender(); $("trBody").scrollTop = 0; } });
 $("trClockBtn").addEventListener("click", () => { if (!TR) return; if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } else TR.start = Date.now(); trRender(); });
 $("trClose").addEventListener("click", trCloseSave);
+// Notizfeld steht in allen vier Schritten zur Verfügung (vorher nur unter „Abschluss“)
+function trNoteFit() { const t = $("trNotiz"); t.style.height = "auto"; t.style.height = Math.min(140, Math.max(44, t.scrollHeight + 2)) + "px"; }
+$("trNotiz").addEventListener("input", (e) => { if (!TR) return; TR.notiz = e.target.value; TR.dirty = true; trNoteFit(); trLive(); });
 $("trLater").addEventListener("click", async () => { if (!TR) return; if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } TR.dirty = true; if (await trDraft()) trClose(); });
 $("trNe").addEventListener("click", async () => { if (!TR) return; const l = TR.lead; await trCloseSave(); if (cur && cur.lead_id === l.lead_id) setStatus(nextNE(cur.status)); });
 $("trSave").addEventListener("click", trFinal);
