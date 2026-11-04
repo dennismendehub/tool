@@ -816,6 +816,7 @@
   .trsay p{margin:0}.trsay ul{margin:0;padding-left:18px;display:grid;gap:4px}
   .trq{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:.5px solid var(--sep)}
   .trq.ko{background:var(--stop-tint);margin:0 -24px;padding-left:24px;padding-right:24px}
+  .trq.offen{background:var(--beacon-tint);margin:0 -24px;padding-left:24px;padding-right:24px;box-shadow:inset 3px 0 0 var(--beacon)}
   .trq .n{font-size:12.5px;color:var(--muted);padding-top:2px;font-variant-numeric:tabular-nums}
   .trq .l{font-weight:600;font-size:14.5px}
   .trq .b{display:grid;gap:6px;min-width:0}
@@ -839,7 +840,7 @@
   .trtable th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
   .trtable td.num{font-variant-numeric:tabular-nums}
   .trtable tr[data-id]{cursor:pointer}.trtable tr[data-id]:hover td{background:var(--fill2)}
-  @media (max-width:720px){.trhead,.trsteps,.trlive,#trBody{padding-left:16px;padding-right:16px}.trq.ko{margin:0 -16px;padding-left:16px;padding-right:16px}.trplate{width:80px}.trplate .t{font-size:22px}}
+  @media (max-width:720px){.trhead,.trsteps,.trlive,#trBody{padding-left:16px;padding-right:16px}.trq.ko,.trq.offen{margin:0 -16px;padding-left:16px;padding-right:16px}.trplate{width:80px}.trplate .t{font-size:22px}}
 
   /* ---------- Tippen ohne Verzögerung (02.11.2026) ----------
      Der Glas-Effekt (Weichzeichner hinter Fenstern) wird bei jedem Tastendruck neu berechnet – in Dialogen doppelt
@@ -2301,12 +2302,13 @@ function trRender() {
     ${TR.saved && TR.saved.lt_fehler ? `<p class="hintline" style="color:var(--stop-ink)">Letzte Übertragung nach LeadTable fehlgeschlagen: ${esc(TR.saved.lt_fehler)}</p>` : ""}`;
   $("trBody").innerHTML = h;
   { const tn = $("trNotiz"); if (document.activeElement !== tn && tn.value !== (TR.notiz || "")) { tn.value = TR.notiz || ""; trNoteFit(); } }
-  $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span>${s.offen.length ? s.offen.length + " Fragen offen" : esc(s.vorschlag)}</span>`;
+  $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span${s.offen.length ? ' style="color:var(--beacon-ink);font-weight:600"' : ""}>${s.offen.length ? (s.offen.length === 1 ? "Frage " + s.offen[0] + " noch offen" : "Fragen " + s.offen.join(", ") + " noch offen") : esc(s.vorschlag)}</span>`;
   trBind();
 }
 function trQ(q, i) {
   const v = TR.ans[q.k], isKo = q.o && q.o.some((o) => o[3] && o[0] === v), hasKo = q.o && q.o.some((o) => o[3]);
-  return `<div class="trq${isKo ? " ko" : ""}"><span class="n">${i + 1}</span><div class="b">
+  const offen = TR.zeigOffen && q.o && v == null;
+  return `<div class="trq${isKo ? " ko" : ""}${offen ? " offen" : ""}" data-i="${i + 1}"><span class="n">${i + 1}</span><div class="b">
     <div class="l">${esc(q.label)}${hasKo ? '<span class="kotag">K.O.</span>' : ""}${TR.from.has(q.k) ? '<span class="fromtag">aus Formular</span>' : ""}</div>
     ${q.staaten ? `<div class="hintline" style="margin:2px 0 6px">„Für die Sicherheitsprüfung muss ich allen Bewerbern dieselbe Frage stellen: Haben Sie über Staatsangehörigkeit, Geburtsort oder enge Familienangehörige einen Bezug zu einem der folgenden Staaten?“ ${esc(trCfg.staaten)}</div>` : ""}
     ${q.o ? `<div class="tropts">${q.o.map((o) => `<button type="button" class="${v === o[0] ? "on" : ""}${o[3] ? " bad" : ""}" data-q="${esc(q.k)}" data-v="${esc(o[0])}">${esc(o[1])}</button>`).join("")}</div>` : ""}
@@ -2316,7 +2318,7 @@ function trQ(q, i) {
 function trLive() {
   const s = trScore(), ko = !!s.ko.length;
   $("trPlate").className = "trplate" + (ko ? " ko" : ""); $("trPts").textContent = ko ? "K.o." : s.pts; $("trKl").textContent = ko ? "–" : s.klasse;
-  $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span>${s.offen.length ? s.offen.length + " Fragen offen" : esc(s.vorschlag)}</span>`;
+  $("trLive").innerHTML = ko ? `<b style="color:var(--stop-ink)">K.o.: ${esc(s.ko.join(", "))}</b>` : `<b>${s.pts} Punkte · Klasse ${s.klasse}</b> <span${s.offen.length ? ' style="color:var(--beacon-ink);font-weight:600"' : ""}>${s.offen.length ? (s.offen.length === 1 ? "Frage " + s.offen[0] + " noch offen" : "Fragen " + s.offen.join(", ") + " noch offen") : esc(s.vorschlag)}</span>`;
   if ($("trProt")) $("trProt").textContent = trProtokoll(s, TR.status || s.vorschlag);
 }
 function trBind() {
@@ -2329,6 +2331,7 @@ function trBind() {
     box.querySelectorAll("[data-q]").forEach((x) => x.classList.toggle("on", TR.ans[k] === x.dataset.v));
     box.classList.toggle("ko", !!(q.o.find((o) => o[0] === TR.ans[k]) || [])[3]);
     const ft = box.querySelector(".fromtag"); if (ft) ft.remove();
+    box.classList.toggle("offen", !!TR.zeigOffen && TR.ans[k] == null);
     trLive();
   }));
   $("trBody").querySelectorAll("[data-t]").forEach((i) => i.addEventListener("input", () => { TR.txt[i.dataset.t] = i.value; TR.dirty = true; trLive(); }));
@@ -2349,7 +2352,13 @@ function trClose() { clearInterval(trTick); $("trOv").classList.remove("show"); 
 async function trCloseSave() { if (TR) { if (TR.start) { TR.dauer = trElapsed(); TR.start = null; } await trDraft(true); } trClose(); }
 async function trFinal() {
   const s = trScore(), ko = !!s.ko.length;
-  if (s.offen.length && !ko) { toast(`Noch offen: Frage ${s.offen.join(", ")} – oder „Später weiter“`, true); TR.step = 2; trRender(); return; }
+  if (s.offen.length && !ko) {
+    // Vorher nur kurze Meldung + Sprung nach oben – die offene Frage war leicht zu übersehen
+    toast(`Noch offen: Frage ${s.offen.join(", ")} – bitte beantworten oder „Später weiter“`, true);
+    TR.step = 2; TR.zeigOffen = true; trRender();
+    const q = $("trBody").querySelector(`.trq[data-i="${s.offen[0]}"]`); if (q) q.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (TR.start) { TR.dauer = trElapsed(); TR.start = null; }
   const l = TR.lead, st = TR.status || s.vorschlag, btn = $("trSave");
   TR.sending = true; btn.disabled = true; btn.textContent = "Wird gesendet …";
