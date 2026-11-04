@@ -9,7 +9,7 @@
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <style>
 :root{--bg:#f4f5f7;--card:#fff;--ink:#16181d;--muted:#667085;--line:#e4e7ec;--acc:#7c3aed;--acc2:#ede9fe;--ok:#12b76a;--warn:#f79009;--bad:#f04438;
-  --r-fulda:#0ea5e9;--r-ruhr:#7c3aed;--r-rheinmain:#f97316;--r-osnabrueck:#16a34a;--r-halle:#e11d48}
+  --r-fulda:#0ea5e9;--r-ruhr:#7c3aed;--r-rheinmain:#0d9488;--r-osnabrueck:#92400e;--r-halle:#c026d3}
 *{box-sizing:border-box}
 html,body{overflow-x:hidden;max-width:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
@@ -54,6 +54,13 @@ tr:last-child td{border-bottom:0}
 .err{color:var(--bad)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
 .legend span{display:flex;gap:6px;align-items:center}
+.qleg{color:var(--ink);font-weight:600}
+.qrows{display:grid;gap:10px;margin-top:4px}
+.qrow{display:grid;grid-template-columns:170px 1fr 92px;gap:10px;align-items:center;font-size:13.5px}
+.qrow b{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.qbar{display:flex;height:12px;border-radius:6px;background:#e4e7ec;overflow:hidden}
+.qbar i{display:block;height:100%}
+@media (max-width:520px){.qrow{grid-template-columns:110px 1fr 80px}}
 .ov{position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;align-items:center;justify-content:center;z-index:3000;padding:16px}
 .ov.show{display:flex}
 .ov .box{background:#fff;border-radius:16px;padding:20px;max-width:440px;width:100%}
@@ -108,7 +115,7 @@ const PLZ = {"01067":[51.0575,13.7171,"Dresden"],"01069":[51.0391,13.7377,"Dresd
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const KEY = "ihro_cockpit_conn";
-const COL = { fulda: "#0ea5e9", ruhr: "#7c3aed", rheinmain: "#f97316", osnabrueck: "#16a34a", halle: "#e11d48" };
+const COL = { fulda: "#0ea5e9", ruhr: "#7c3aed", rheinmain: "#0d9488", osnabrueck: "#92400e", halle: "#c026d3" };
 const eur = (v) => v == null || !isFinite(v) ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: v < 100 ? 2 : 0, maximumFractionDigits: v < 100 ? 2 : 0 }) + " €";
 const pct = (a, b) => b ? Math.round(a / b * 100) + " %" : "–";
 const fmtD = (iso) => new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
@@ -130,11 +137,14 @@ async function load() {
   } catch (e) { $("main").innerHTML = '<div class="msg err">Konnte nicht laden: ' + esc(e.message) + '</div>'; }
 }
 
+/* Testeinträge (eigene Testbewerbungen) zählen im Report nicht */
+const TEST_IDS = new Set(["6ae83c5ca286e77282f27196", "6ae31d16f5aeb9f5a81e9491", "6ae2101e24e78f012e4d8007", "6aeae29339f68c19b9832cb0"]);
+
 /* Bewerber mit Koordinaten, Entfernung zum Mittelpunkt der Kampagne, Zeitraum-Filter */
 function prep() {
   const z = $("zeit").value, ab = z === "alle" ? 0 : Date.now() - Number(z) * 864e5;
   const reg = Object.fromEntries(DATA.regionen.map((r) => [r.key, r]));
-  const leads = DATA.leads.filter((l) => new Date(l.datum).getTime() >= ab).map((l) => {
+  const leads = DATA.leads.filter((l) => !TEST_IDS.has(l.id) && new Date(l.datum).getTime() >= ab).map((l) => {
     const p = PLZ[l.plz]; const zr = reg[l.region]?.ziel;
     const o = { ...l, lat: p ? p[0] : null, lon: p ? p[1] : null, plzOrt: p ? p[2] : "" };
     const ortOk = l.ort && !/^(ruhr|ruhrgebiet|nordwest|nordost|suedwest|südwest|suedost|südost|rheinmain|rhein-main|mitte|osten|westen|norden|sueden|süden|ost|west|nord|süd|sued)$/i.test(l.ort);
@@ -162,6 +172,28 @@ function cluster(pts, r = 15) {
   return out.sort((a, b) => b.n - a.n);
 }
 
+/* Stand im Ablauf (Status in LeadTable): Online-Vorgespräch ab 04.11.2026 */
+const QF = { neu: "#ffffff", mail: "#facc15", erinn: "#f97316", still: "#111827", online: "#1d4ed8", q: "#16a34a", n: "#dc2626", bearb: "#98a2b3" };
+const QNAME = { neu: "neu, noch keine Mail", mail: "Mail bekommen (Qualifizierung)", erinn: "Erinnerung bekommen", still: "keine Reaktion auf Vor-Quali",
+  online: "online vorqualifiziert: anrufen", q: "von Dennis qualifiziert", n: "nicht qualifiziert / Absage", bearb: "in Bearbeitung (Anruf, Nachfassen …)" };
+const QORDER = ["online", "q", "mail", "erinn", "still", "bearb", "n", "neu"];
+const qOf = (l) => {
+  const s = String(l.status ?? "").trim().toLowerCase();
+  if (!s || s === "unbearbeitet") return "neu";
+  if (s === "qualifizierung") return "mail";
+  if (s === "erinnerungsmail verschickt") return "erinn";
+  if (s === "keine reaktion auf vor-quali") return "still";
+  if (/^online[- ]vorqualifiziert$/.test(s)) return "online";
+  if (/nicht qualifiziert|absage|abgesagt|kein interesse|ungeeignet/.test(s)) return "n";
+  if (/^qualifiziert$|termin|angebot|vorgestellt|zusage|eingestellt|vertrag/.test(s)) return "q";
+  return "bearb";
+};
+const qDot = (k) => `<i class="dot" style="background:${QF[k]};${k === "neu" ? "box-shadow:inset 0 0 0 2px #98a2b3" : ""}"></i>`;
+const qLegend = () => `<div class="legend qleg">${QORDER.map((k) => `<span>${qDot(k)}${QNAME[k]}</span>`).join("")}</div>`;
+function qbar(s) {
+  const t = Math.max(1, s.n), w = (v) => (v / t * 100).toFixed(1) + "%";
+  return `<div class="qbar" title="${QORDER.map((k) => `${s.cnt[k]} ${QNAME[k]}`).join(" · ")}">${QORDER.filter((k) => k !== "neu").map((k) => `<i style="width:${w(s.cnt[k])};background:${QF[k]}"></i>`).join("")}</div>`;
+}
 function stats(L, K, r) {
   const n = L.length, kost = K.reduce((s, k) => s + k.kosten, 0);
   const mitKm = L.filter((l) => l.km != null), rad = r?.ziel?.radius || 60;
@@ -171,7 +203,9 @@ function stats(L, K, r) {
   const bearb = L.filter((l) => l.kat !== "offen").length, err = L.filter((l) => l.kat === "erreicht").length;
   const ce95 = L.filter((l) => /^ja/i.test(l.ce) && /^ja/i.test(l.code95)).length;
   const erf3 = L.filter((l) => /mehr als 3/i.test(l.erfahrung)).length;
-  return { n, kost, cpl: n ? kost / n : null, inR, mitKm: mitKm.length, avgKm, medKm, bearb, err, ce95, erf3, rad };
+  const cnt = Object.fromEntries(QORDER.map((k) => [k, 0])); L.forEach((l) => cnt[qOf(l)]++);
+  const qual = cnt.q + cnt.online, nq = cnt.n;
+  return { n, kost, cpl: n ? kost / n : null, inR, mitKm: mitKm.length, avgKm, medKm, bearb, err, ce95, erf3, rad, qual, nq, cnt };
 }
 
 function tabs() {
@@ -231,9 +265,13 @@ function addRegion(r, L, opts = {}) {
     window.L.circleMarker([r.ziel.lat, r.ziel.lon], { radius: 4, color: c, fillColor: c, fillOpacity: 1 }).addTo(map);
   }
   const pts = L.filter((l) => l.lat != null);
-  if (window.L.heatLayer && pts.length) window.L.heatLayer(pts.map((p) => [p.lat, p.lon, 1]), { radius: opts.heat || 28, blur: 22, maxZoom: 10, minOpacity: .35 }).addTo(map);
-  for (const p of pts) window.L.circleMarker([p.lat, p.lon], { radius: 5, color: "#fff", weight: 1.5, fillColor: c, fillOpacity: .95 }).addTo(map)
-    .bindTooltip(`${esc(p.ortName)} (${p.plz})${p.km != null ? " · " + Math.round(p.km) + " km" : ""} · ${fmtD(p.datum)}`);
+  if (window.L.heatLayer && pts.length) window.L.heatLayer(pts.map((p) => [p.lat, p.lon, 1]), { radius: opts.heat || 28, blur: 22, maxZoom: 10, minOpacity: .3, gradient: { 0.3: "#f1f5f9", 0.6: "#cbd5e1", 0.85: "#94a3b8", 1: "#475569" } } /* nur Grautöne – die Punktfarben stehen für den Stand im Ablauf */).addTo(map);
+  // Füllung = Stand im Ablauf (siehe QF), Rand = Farbe der Region; neue liegen unten
+  for (const p of pts.slice().sort((a, b) => QORDER.indexOf(qOf(b)) - QORDER.indexOf(qOf(a)))) {
+    const q = qOf(p);
+    window.L.circleMarker([p.lat, p.lon], { radius: q === "neu" ? 5 : q === "online" ? 9 : 7, color: c, weight: q === "neu" ? 2 : 2.5, fillColor: QF[q], fillOpacity: 1 }).addTo(map)
+      .bindTooltip(`<b>${esc(QNAME[q])}</b><br>${esc(p.ortName)} (${p.plz})${p.km != null ? " · " + Math.round(p.km) + " km" : ""} · ${fmtD(p.datum)}`);
+  }
 }
 
 function renderAlle(reg, leads, kosten) {
@@ -249,22 +287,24 @@ function renderAlle(reg, leads, kosten) {
   $("main").innerHTML = `
   <div class="grid kpis">
     ${kpi("Bewerbungen", ges.n, "5 Regionen")}${kpi("Werbekosten", eur(ges.kost), "Meta")}${kpi("Kosten je Bewerbung", eur(ges.cpl), "Durchschnitt")}
-    ${kpi("Im Meta-Radius", pct(gIn, gKm), `${gIn} von ${gKm}`)}${kpi("Bearbeitet", pct(ges.bearb, ges.n), `${ges.bearb} von ${ges.n}`)}${kpi("CE + Code 95", pct(ges.ce95, ges.n), "laut Formular")}
+    ${kpi("Im Meta-Radius", pct(gIn, gKm), `${gIn} von ${gKm}`)}${kpi("Bearbeitet", pct(ges.bearb, ges.n), `${ges.bearb} von ${ges.n}`)}${kpi("Qualifiziert", ges.qual, `${ges.cnt.online} online · ${ges.cnt.q} von dir · ${ges.nq} nicht qualifiziert`)}
   </div>
   <div class="grid two" style="margin-top:14px">
-    <div class="card"><h2>Woher kommen die Bewerber?</h2><p class="sub">Punkt = Bewerber (Wohnort laut PLZ), Wärme = Häufung, gestrichelt = Meta-Zielgebiet.</p><div id="map"></div>
-      <div class="legend">${DATA.regionen.map((r) => `<span><i class="dot" style="background:${COL[r.key]}"></i>${esc(r.name)}</span>`).join("")}</div></div>
+    <div class="card"><h2>Woher kommen die Bewerber?</h2><p class="sub">Punkt = Bewerber (Wohnort laut PLZ): Füllung = Stand im Ablauf, Rand = Region. Wärme = Häufung, gestrichelt = Meta-Zielgebiet.</p><div id="map"></div>
+      ${qLegend()}<div class="legend">${DATA.regionen.map((r) => `<span><i class="dot" style="background:${COL[r.key]}"></i>${esc(r.name)}</span>`).join("")}</div></div>
     <div class="card"><h2>Auf einen Blick</h2><ul class="finds">${finds.map((f) => `<li>${f}</li>`).join("") || "<li>Noch keine Daten im Zeitraum.</li>"}</ul>
       <p class="note">Bewerber ohne gültige PLZ fehlen auf der Karte (${leads.filter((l) => l.lat == null).length}). Ab 31.10. wird zusätzlich der Ort abgefragt; die Karte nutzt immer die PLZ.</p></div>
   </div>
   <div class="card" style="margin-top:14px"><h2>Regionen im Vergleich</h2><p class="sub">Kosten aus Meta, Bewerbungen aus LeadTable (ohne „T_Transa Allgemein“).</p>
-    <div style="overflow-x:auto"><table><thead><tr><th>Region</th><th class="n">Bewerbungen</th><th class="n">Werbekosten</th><th class="n">€ / Bewerbung</th><th class="n">im Radius</th><th class="n">Ø Entfernung</th><th class="n">CE + 95</th><th class="n">&gt; 3 J. Erfahrung</th><th class="n">bearbeitet</th><th class="n">erreicht</th></tr></thead>
+    <div style="overflow-x:auto"><table><thead><tr><th>Region</th><th class="n">Bewerbungen</th><th class="n">Werbekosten</th><th class="n">€ / Bewerbung</th><th class="n">im Radius</th><th class="n">Ø Entfernung</th><th class="n">CE + 95</th><th class="n">&gt; 3 J. Erfahrung</th><th class="n">bearbeitet</th><th class="n" style="color:#16a34a">qualifiziert</th><th class="n" style="color:#dc2626">nicht qual.</th></tr></thead>
     <tbody>${rows.map(({ r, s }) => `<tr><td><span class="dot" style="background:${COL[r.key]}"></span> ${esc(r.name)}<br><span class="note" style="margin:0">${r.ziel ? `${r.ziel.radius} km um ${esc(r.ziel.name)}` : "Zielgebiet unbekannt"}</span></td>
       <td class="n"><b>${s.n}</b></td><td class="n">${eur(s.kost)}</td><td class="n">${eur(s.cpl)}</td><td class="n">${pct(s.inR, s.mitKm)}</td><td class="n">${s.avgKm != null ? Math.round(s.avgKm) + " km" : "–"}</td>
-      <td class="n">${pct(s.ce95, s.n)}</td><td class="n">${pct(s.erf3, s.n)}</td><td class="n">${s.bearb}</td><td class="n">${s.err}</td></tr>`).join("")}</tbody></table></div></div>
+      <td class="n">${pct(s.ce95, s.n)}</td><td class="n">${pct(s.erf3, s.n)}</td><td class="n">${s.bearb}</td><td class="n"><b style="color:#16a34a">${s.qual}</b></td><td class="n"><b style="color:#dc2626">${s.nq}</b></td></tr>`).join("")}</tbody></table></div></div>
   <div class="grid two" style="margin-top:14px">
     <div class="card"><h2>Bewerbungen je Tag</h2><p class="sub">alle Regionen</p>${daysChart(leads, kosten)}</div>
-    <div class="card"><h2>Bewerbungen je Region</h2><p class="sub">im gewählten Zeitraum</p>${hbars(rows.map((x) => [x.r.name, x.s.n, COL[x.r.key]]))}</div>
+    <div class="card"><h2>Stand je Region</h2><p class="sub">Anteil der Bewerbungen im gewählten Zeitraum, Farben wie auf der Karte (weiß = neu, ohne Balken)</p>
+      <div class="qrows">${rows.map(({ r, s }) => `<div class="qrow"><span><span class="dot" style="background:${COL[r.key]}"></span> ${esc(r.name)}</span>${qbar(s)}<b><span style="color:#16a34a">${s.qual}</span> / <span style="color:#dc2626">${s.nq}</span> / ${s.n}</b></div>`).join("")}</div>
+      <p class="note">Zahlen: qualifiziert (online + von dir) / nicht qualifiziert / Bewerbungen gesamt. Grundlage ist der Status in LeadTable.</p></div>
   </div>`;
   baseMap([51.2, 9.6], 6);
   DATA.regionen.forEach((r) => addRegion(r, leads.filter((l) => l.region === r.key), { heat: 22 }));
@@ -299,17 +339,17 @@ function renderRegion(r, L, K) {
   $("main").innerHTML = `
   <div class="grid kpis">
     ${kpi("Bewerbungen", s.n, `${L.filter((l) => l.kat === "offen").length} noch unbearbeitet`)}${kpi("Werbekosten", eur(s.kost), "Meta")}${kpi("Kosten je Bewerbung", eur(s.cpl), "")}
-    ${kpi("Im Meta-Radius", pct(s.inR, s.mitKm), `${s.inR} von ${s.mitKm} · ${rad} km`)}${kpi("Ø Entfernung", s.avgKm != null ? Math.round(s.avgKm) + " km" : "–", "zum Mittelpunkt")}${kpi("Anrufversuche", r.versuche.versuche, `${r.versuche.erreicht} erreicht`)}
+    ${kpi("Im Meta-Radius", pct(s.inR, s.mitKm), `${s.inR} von ${s.mitKm} · ${rad} km`)}${kpi("Qualifiziert", `<span style="color:#16a34a">${s.qual}</span> <span style="font-size:15px;color:var(--muted)">/ <span style="color:#dc2626">${s.nq}</span> nicht</span>`, `${s.cnt.online} online · ${s.cnt.mail + s.cnt.erinn} warten auf Antwort · ${s.cnt.neu} neu`)}${kpi("Anrufversuche", r.versuche.versuche, `${r.versuche.erreicht} erreicht`)}
   </div>
   <div class="grid two" style="margin-top:14px">
-    <div class="card"><h2>Herkunft der Bewerber · ${esc(r.name)}</h2><p class="sub">${r.ziel ? `Meta-Zielgebiet: ${rad} km um ${esc(r.ziel.name)} (gestrichelt).` : "Zielgebiet aus Meta nicht verfügbar."} Punkt = Bewerber, Wärme = Häufung.</p><div id="map"></div></div>
+    <div class="card"><h2>Herkunft der Bewerber · ${esc(r.name)}</h2><p class="sub">${r.ziel ? `Meta-Zielgebiet: ${rad} km um ${esc(r.ziel.name)} (gestrichelt).` : "Zielgebiet aus Meta nicht verfügbar."} Punkt = Bewerber, Füllung = Stand im Ablauf, Wärme = Häufung.</p><div id="map"></div>${qLegend()}</div>
     <div class="card"><h2>Auf einen Blick</h2><ul class="finds">${finds.map((f) => `<li>${f}</li>`).join("") || "<li>Noch keine Bewerbungen im Zeitraum.</li>"}</ul>
       <h2 style="margin-top:18px">Entfernung zum Mittelpunkt</h2>${hbars(entfernung(L, rad))}
       <p class="note">Orange = außerhalb des Meta-Radius. ${L.filter((l) => l.lat == null).length ? L.filter((l) => l.lat == null).length + " Bewerber ohne gültige PLZ." : ""}</p></div>
   </div>
   <div class="card" style="margin-top:14px"><h2>Häufungen (Umkreis 15 km)</h2><p class="sub">Bewerber, die nah beieinander wohnen, zusammengefasst. Hilft zu sehen, ob ein Gebiet besonders gut zieht.</p>
     <div style="overflow-x:auto"><table><thead><tr><th>Gebiet / Orte</th><th class="n">Bewerber</th><th class="n">km zum Mittelpunkt</th><th>Anteil</th></tr></thead>
-    <tbody>${cl.map((x) => `<tr><td>${esc(x.orte.join(", "))}<br><span class="note" style="margin:0">PLZ ${[...new Set(x.pts.map((p) => p.plz))].join(", ")}</span></td><td class="n"><b>${x.n}</b></td><td class="n">${Math.round(x.km)}${x.km > rad ? ' <span style="color:#f79009">●</span>' : ""}</td><td><div class="bar"><i style="width:${x.n / Math.max(1, L.length) * 100}%;background:${c}"></i></div></td></tr>`).join("") || '<tr><td colspan="4" class="note">Keine Bewerber mit PLZ.</td></tr>'}</tbody></table></div></div>
+    <tbody>${cl.map((x) => `<tr><td>${esc(x.orte.join(", "))}<br><span class="note" style="margin:0">PLZ ${[...new Set(x.pts.map((p) => p.plz))].join(", ")}</span></td><td class="n"><b>${x.n}</b>${x.pts.some((p) => qOf(p) !== "neu") ? `<br><span class="note" style="margin:0"><span style="color:#16a34a">${x.pts.filter((p) => ["q", "online"].includes(qOf(p))).length} q</span> · <span style="color:#dc2626">${x.pts.filter((p) => qOf(p) === "n").length} n</span></span>` : ""}</td><td class="n">${Math.round(x.km)}${x.km > rad ? ' <span style="color:#f79009">●</span>' : ""}</td><td><div class="bar"><i style="width:${x.n / Math.max(1, L.length) * 100}%;background:${c}"></i></div></td></tr>`).join("") || '<tr><td colspan="4" class="note">Keine Bewerber mit PLZ.</td></tr>'}</tbody></table></div></div>
   <div class="grid two" style="margin-top:14px">
     <div class="card"><h2>Bewerbungen je Tag</h2><p class="sub">${esc(r.name)}</p>${daysChart(L, K)}</div>
     <div class="card"><h2>Qualität laut Formular</h2>
