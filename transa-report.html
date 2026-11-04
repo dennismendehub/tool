@@ -122,7 +122,23 @@ const fmtD = (iso) => new Date(iso).toLocaleDateString("de-DE", { day: "2-digit"
 function conn() { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } }
 function km(a, b, c, d) { const R = 6371, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
 
-let DATA = null, TAB = "alle", map = null, VQ = null;
+let DATA = null, TAB = "alle", map = null, VQ = null, QL = null;
+/* Kennzahlen oben (Dennis, 04.11.2026): Bewerbungen gesamt / heute / 7 Tage, Qualifiziert gesamt + heute,
+   Werbekosten, Kosten je Bewerbung heute und im Durchschnitt – für „Alle Regionen“ und je Region, immer seit Kampagnenstart */
+const bDay = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" });
+function kpiRow(key) {
+  const heute = bDay(Date.now()), d7 = bDay(Date.now() - 6 * 864e5);
+  const L = DATA.leads.filter((l) => !TEST_IDS.has(l.id) && (key === "alle" || l.region === key));
+  const K = DATA.kosten.filter((k) => key === "alle" || k.region === key);
+  const nH = L.filter((l) => bDay(l.datum) === heute).length, n7 = L.filter((l) => bDay(l.datum) >= d7).length;
+  const kost = K.reduce((s, k) => s + k.kosten, 0), kH = K.filter((k) => k.tag === heute).reduce((s, k) => s + k.kosten, 0);
+  const Q = (QL || []).filter((v) => key === "alle" || v.region === key), qH = Q.filter((v) => v.seit && bDay(v.seit) === heute).length;
+  const qOn = Q.filter((v) => /online/i.test(v.status)).length, nq = L.filter((l) => /^nicht qualifiziert$/i.test(String(l.status || "").trim())).length;
+  return kpi("Bewerbungen gesamt", L.length, key === "alle" ? "alle 5 Regionen" : "seit Kampagnenstart") + kpi("Bewerbungen heute", nH, "seit 0 Uhr") + kpi("Bewerbungen 7 Tage", n7, "inkl. heute") +
+    kpi("Qualifiziert", `${QL ? Q.length : "–"}${QL && qH ? ` <span style="font-size:15px;color:#16a34a">+${qH} heute</span>` : ""}`, QL ? `${qOn} online · ${Q.length - qOn} von dir · ${nq} nicht qualifiziert` : "nicht geladen") +
+    kpi("Werbekosten", eur(kost), `heute ${eur(kH)} · Meta`) +
+    kpi("Kosten je Bewerbung", nH ? eur(kH / nH) : "–", `heute · Durchschnitt ${L.length ? eur(kost / L.length) : "–"}`);
+}
 /* Online vorqualifiziert: Zeile für Liste und Excel */
 const VQ_REG = [["fulda", /fulda|hersfeld/i], ["ruhr", /ruhr/i], ["rheinmain", /rhein[\s-]*main/i], ["osnabrueck", /osnabr/i], ["halle", /halle|leipzig/i]];
 const REGWORT = /^(ruhr|ruhrgebiet|nordwest|nordost|suedwest|südwest|suedost|südost|rheinmain|rhein-main|mitte|osten|westen|norden|sueden|süden|ost|west|nord|süd|sued)$/i;
@@ -178,10 +194,11 @@ async function load() {
     DATA = d;
     // Liste „Online vorqualifiziert“ für die Dispo (mit Namen; aus der Function transa-gespraech)
     try {
-      const r2 = await fetch(c.url + "/functions/v1/transa-gespraech", { method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": c.token }, body: JSON.stringify({ action: "transa_status_liste", stati: ["Online-Vorqualifiziert"] }) });
+      const r2 = await fetch(c.url + "/functions/v1/transa-gespraech", { method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": c.token }, body: JSON.stringify({ action: "transa_status_liste", stati: ["Online-Vorqualifiziert", "Qualifiziert"] }) });
       const d2 = await r2.json().catch(() => ({}));
-      VQ = r2.ok ? (d2.leads || []).filter((l) => !TEST_IDS.has(l.lead_id) && !/^test\b/i.test(l.name || "")).map(vqRow) : null;
-    } catch { VQ = null; }
+      QL = r2.ok ? (d2.leads || []).filter((l) => !TEST_IDS.has(l.lead_id) && !/^test\b/i.test(l.name || "")).map((l) => ({ ...vqRow(l), status: String(l.status || "").trim() })) : null;
+      VQ = QL ? QL.filter((v) => /^online-vorqualifiziert$/i.test(v.status)) : null;
+    } catch { VQ = null; QL = null; }
     render();
   } catch (e) { $("main").innerHTML = '<div class="msg err">Konnte nicht laden: ' + esc(e.message) + '</div>'; }
 }
@@ -334,10 +351,7 @@ function renderAlle(reg, leads, kosten) {
   if (gKm) finds.push(`${pct(gIn, gKm)} der Bewerber wohnen innerhalb des Meta-Radius, ${gKm - gIn} außerhalb.`);
   if (allCl.length) finds.push(`Häufungen (mehrere Bewerber im Umkreis von 15 km): ${allCl.slice(0, 5).map((c) => `<b>${esc(c.orte[0].replace(/ \(\d+\)$/, ""))}</b> (${c.n})`).join(", ")}.`);
   $("main").innerHTML = `
-  <div class="grid kpis">
-    ${kpi("Bewerbungen", ges.n, "5 Regionen")}${kpi("Werbekosten", eur(ges.kost), "Meta")}${kpi("Kosten je Bewerbung", eur(ges.cpl), "Durchschnitt")}
-    ${kpi("Im Meta-Radius", pct(gIn, gKm), `${gIn} von ${gKm}`)}${kpi("Bearbeitet", pct(ges.bearb, ges.n), `${ges.bearb} von ${ges.n}`)}${kpi("Qualifiziert", ges.qual, `${ges.cnt.online} online · ${ges.cnt.q} von dir · ${ges.nq} nicht qualifiziert`)}
-  </div>
+  <div class="grid kpis">${kpiRow("alle")}</div>
   <div class="grid two" style="margin-top:14px">
     <div class="card"><h2>Woher kommen die Bewerber?</h2><p class="sub">Punkt = Bewerber (Wohnort laut PLZ): Füllung = Stand im Ablauf, Rand = Region. Wärme = Häufung, gestrichelt = Meta-Zielgebiet.</p><div id="map"></div>
       ${qLegend()}<div class="legend">${DATA.regionen.map((r) => `<span><i class="dot" style="background:${COL[r.key]}"></i>${esc(r.name)}</span>`).join("")}</div></div>
@@ -388,10 +402,7 @@ function renderRegion(r, L, K) {
   const fern = L.filter((l) => l.km != null && l.km > rad + 30).sort((a, b) => b.km - a.km);
   if (fern.length) finds.push(`Weit außerhalb (mehr als ${rad + 30} km): ${fern.slice(0, 5).map((l) => `${esc(l.ortName)} (${Math.round(l.km)} km)`).join(", ")}.`);
   $("main").innerHTML = `
-  <div class="grid kpis">
-    ${kpi("Bewerbungen", s.n, `${L.filter((l) => l.kat === "offen").length} noch unbearbeitet`)}${kpi("Werbekosten", eur(s.kost), "Meta")}${kpi("Kosten je Bewerbung", eur(s.cpl), "")}
-    ${kpi("Im Meta-Radius", pct(s.inR, s.mitKm), `${s.inR} von ${s.mitKm} · ${rad} km`)}${kpi("Qualifiziert", `<span style="color:#16a34a">${s.qual}</span> <span style="font-size:15px;color:var(--muted)">/ <span style="color:#dc2626">${s.nq}</span> nicht</span>`, `${s.cnt.online} online · ${s.cnt.mail + s.cnt.erinn} warten auf Antwort · ${s.cnt.neu} neu`)}${kpi("Anrufversuche", r.versuche.versuche, `${r.versuche.erreicht} erreicht`)}
-  </div>
+  <div class="grid kpis">${kpiRow(r.key)}</div>
   <div class="grid two" style="margin-top:14px">
     <div class="card"><h2>Herkunft der Bewerber · ${esc(r.name)}</h2><p class="sub">${r.ziel ? `Meta-Zielgebiet: ${rad} km um ${esc(r.ziel.name)} (gestrichelt).` : "Zielgebiet aus Meta nicht verfügbar."} Punkt = Bewerber, Füllung = Stand im Ablauf, Wärme = Häufung.</p><div id="map"></div>${qLegend()}</div>
     <div class="card"><h2>Auf einen Blick</h2><ul class="finds">${finds.map((f) => `<li>${f}</li>`).join("") || "<li>Noch keine Bewerbungen im Zeitraum.</li>"}</ul>
