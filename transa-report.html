@@ -142,15 +142,17 @@ function abGrund(l) {
   if (g && !g.entwurf && g.klasse) return `Telefonat: ${g.punkte ?? "?"} Punkte, Klasse ${g.klasse}`;
   return "";
 }
+/* Talentpool steht in der Liste der Qualifizierten unter „Später“, nicht bei den Abgelehnten */
+const abListe = (key) => AB.filter((v) => !/talentpool/i.test(v.status) && (key === "alle" || v.region === key)).sort((a, b) => String(b.seit || "").localeCompare(String(a.seit || "")));
 function abRow(l) { const v = vqRow(l); const st = String(l.status || "").trim(); return { ...v, status: st, art: AB_ART[st.toLowerCase()] || st, grund: abGrund(l) }; }
 function abCard(key) {
   if (!AB) return `<div class="card" style="margin-top:14px"><h2>Abgelehnt / abgesagt</h2><p class="note">Liste konnte nicht geladen werden.</p></div>`;
   const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
-  const L = AB.filter((v) => key === "alle" || v.region === key).sort((a, b) => String(b.seit || "").localeCompare(String(a.seit || "")));
+  const L = abListe(key);
   const farbe = (a) => /talentpool/i.test(a) ? "#6b7280" : /absage/i.test(a) ? "#b45309" : "#dc2626";
   const ortT = (v) => v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : "");
   return `<div class="card" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
-      <div><h2>Abgelehnt / abgesagt${key === "alle" ? "" : " · " + esc(regName(key))}</h2><p class="sub">Nicht qualifiziert (online oder im Telefonat), Absage durch den Bewerber und Talentpool (Start später) – mit Grund. ${L.length} Bewerber.</p></div>
+      <div><h2>Abgelehnt / abgesagt${key === "alle" ? "" : " · " + esc(regName(key))}</h2><p class="sub">Nicht qualifiziert (online oder im Telefonat) und Absage durch den Bewerber – mit Grund. Talentpool steht oben bei „Später“. ${L.length} Bewerber.</p></div>
       <button class="pri noprint" id="abXls" ${L.length ? "" : "disabled"}>Als Excel herunterladen</button></div>
     <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Ergebnis</th><th>Grund</th><th>PLZ / Ort</th>${key === "alle" ? "<th>Region</th>" : ""}<th class="n">seit</th></tr></thead>
     <tbody>${L.map((v) => `<tr><td>${esc(v.name)}</td><td><span style="color:${farbe(v.art)};font-weight:600">${esc(v.art)}</span></td><td>${esc(v.grund) || '<span class="note" style="margin:0">kein Grund vermerkt</span>'}</td><td>${esc([v.plz, ortT(v)].filter(Boolean).join(" "))}</td>${key === "alle" ? `<td><span class="dot" style="background:${COL[v.region] || "#999"}"></span> ${esc(regName(v.region))}</td>` : ""}<td class="n">${fmtD(v.seit)}</td></tr>`).join("")
@@ -160,7 +162,7 @@ function abCard(key) {
 async function abExcel(key) {
   await xlsxLaden();
   const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
-  const L = AB.filter((v) => key === "alle" || v.region === key).sort((a, b) => String(b.seit || "").localeCompare(String(a.seit || "")));
+  const L = abListe(key);
   const rows = L.map((v) => ({ Name: v.name, Ergebnis: v.art, Grund: v.grund, PLZ: v.plz, Ort: v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : ""), Region: regName(v.region), "seit": v.seit ? new Date(v.seit).toLocaleDateString("de-DE") : "" }));
   const ws = XLSX.utils.json_to_sheet(rows); ws["!cols"] = [24, 22, 70, 8, 22, 18, 12].map((w) => ({ wch: w }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Abgelehnt");
@@ -189,25 +191,52 @@ const REGWORT = /^(ruhr|ruhrgebiet|nordwest|nordost|suedwest|südwest|suedost|s�
 function vqRow(l) {
   const a = {}; for (const x of (l.answers || [])) a[String(x.q).toLowerCase()] = String(x.a ?? "").trim();
   const d = String(l.description || "").split(/\n/);
-  let err = ""; for (const z of d) { const m = z.match(/am besten erreichbar\s*:\s*(.+)/i); if (m) err = m[1].trim(); }
+  let err = "", vgStart = "";
+  for (const z of d) { const m = z.match(/am besten erreichbar\s*:\s*(.+)/i); if (m) err = m[1].trim(); const s = z.match(/^\s*start\s*:\s*(.+)/i); if (s) vgStart = s[1].trim(); }
   const warn = [...new Set(d.filter((z) => /⚠|bitte prüfen/i.test(z)).map((z) => z.trim()))].join(" | ");
   const reg = (VQ_REG.find(([, re]) => re.test(l.kampagne || "")) || ["allgemein"])[0];
   return { id: l.lead_id, name: l.name || "", plz: (a.plz || "").replace(/\D/g, "").slice(0, 5), ort: [a.wohnort, a.ort].find((o) => o && !REGWORT.test(o)) || "", region: reg,
-    kampagne: l.kampagne || "", seit: l.last_status_change || l.lead_created_at, klasse: l.gespraech && !l.gespraech.entwurf ? [l.gespraech.klasse, l.gespraech.punkte != null ? l.gespraech.punkte + " P." : ""].filter(Boolean).join(" · ") : "", erreichbar: err, erfahrung: a.erfahrung || "", start: a.start || "", adr: a.adr || "", hinweis: warn };
+    kampagne: l.kampagne || "", seit: l.last_status_change || l.lead_created_at, klasse: l.gespraech && !l.gespraech.entwurf ? [l.gespraech.klasse, l.gespraech.punkte != null ? l.gespraech.punkte + " P." : ""].filter(Boolean).join(" · ") : "", erreichbar: err, erfahrung: a.erfahrung || "", start: a.start || "", vgStart: vgStart === "–" ? "" : vgStart, adr: a.adr || "", hinweis: warn };
+}
+/* Startmonat (Dennis, 04.11.2026): Liste und Excel nach Beginn Januar / Februar / später (Talentpool) ordnen.
+   Vorrang hat die Antwort im Online-Vorgespräch („Start: Ab Januar“ in der LeadTable-Beschreibung), sonst die Angabe aus der Bewerbung. */
+const SG = [["jan", "Start Januar 2027"], ["feb", "Start Februar 2027"], ["spaet", "Später (Talentpool)"], ["offen", "Start noch offen"]];
+const SG_NAME = Object.fromEntries(SG);
+function startGrp(v) {
+  if (/talentpool/i.test(v.status || "")) return "spaet";
+  for (const s of [v.vgStart, v.start]) {
+    const t = String(s || "").toLowerCase();
+    if (/januar/.test(t)) return "jan";
+    if (/februar/.test(t)) return "feb";
+    if (/später|spaeter|spater/.test(t)) return "spaet";
+  }
+  return "offen";
+}
+const startText = (v) => v.vgStart ? `${v.vgStart} (Vorgespräch)` : v.start ? `${schoen(v.start)} (Bewerbung)` : "";
+const sgOrd = (v) => SG.findIndex(([k]) => k === startGrp(v));
+/* Qualifizierte plus Talentpool, geordnet nach Startmonat, dann Region und PLZ */
+function qListe(key) {
+  const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
+  const pool = (AB || []).filter((v) => /talentpool/i.test(v.status));
+  return [...QL, ...pool].filter((v) => key === "alle" || v.region === key)
+    .sort((a, b) => sgOrd(a) - sgOrd(b) || regName(a.region).localeCompare(regName(b.region), "de") || String(a.plz).localeCompare(String(b.plz)));
 }
 function vqCard(key) {
   if (!QL) return `<div class="card" style="margin-top:14px"><h2>Qualifiziert</h2><p class="note">Liste konnte nicht geladen werden.</p></div>`;
   const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
-  const L = QL.filter((v) => key === "alle" || v.region === key).sort((a, b) => regName(a.region).localeCompare(regName(b.region), "de") || String(a.plz).localeCompare(String(b.plz)));
-  const standT = (v) => /online/i.test(v.status) ? `<span style="color:#2563eb;font-weight:600">online vorqualifiziert</span>` : `<span style="color:#16a34a;font-weight:600">telefonisch qualifiziert</span>${v.klasse ? ` <span class="note" style="margin:0">${esc(v.klasse)}</span>` : ""}`;
+  const L = qListe(key), cols = key === "alle" ? 9 : 8;
+  const standT = (v) => /talentpool/i.test(v.status) ? `<span style="color:#6b7280;font-weight:600">Talentpool bestätigt</span>` : /online/i.test(v.status) ? `<span style="color:#2563eb;font-weight:600">online vorqualifiziert</span>` : `<span style="color:#16a34a;font-weight:600">telefonisch qualifiziert</span>${v.klasse ? ` <span class="note" style="margin:0">${esc(v.klasse)}</span>` : ""}`;
   const ortT = (v) => { const p = PLZ[v.plz]; return v.ort || (p ? p[2] : ""); };
+  const zeile = (v) => `<tr><td>${esc(v.name)}${v.hinweis ? ` <span title="${esc(v.hinweis)}" style="color:#dc2626;font-weight:700">⚠</span>` : ""}</td><td>${standT(v)}</td><td>${esc(v.plz)}</td><td>${esc(ortT(v))}</td>${key === "alle" ? `<td><span class="dot" style="background:${COL[v.region] || "#999"}"></span> ${esc(regName(v.region))}</td>` : ""}<td>${esc(v.erreichbar)}</td><td>${esc(v.erfahrung)}</td><td>${esc(startText(v))}</td><td class="n">${fmtD(v.seit)}</td></tr>`;
+  const bloecke = SG.map(([k, n]) => [k, n, L.filter((v) => startGrp(v) === k)]).filter(([, , g]) => g.length);
+  const zahl = SG.map(([k, n]) => `${L.filter((v) => startGrp(v) === k).length} ${n.replace(/ 2027$/, "").replace(/^Start /, "")}`).join(" · ");
   return `<div class="card" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
-      <div><h2>Qualifizierte Fahrer${key === "alle" ? "" : " · " + esc(regName(key))}</h2><p class="sub">Online vorqualifiziert (Vorgespräch ausgefüllt, passt) und telefonisch qualifiziert – für die Planung der Abstellorte. ${L.length} Fahrer${L.length ? ` (${L.filter((v) => /online/i.test(v.status)).length} online, ${L.filter((v) => !/online/i.test(v.status)).length} telefonisch)` : ""}.</p></div>
+      <div><h2>Qualifizierte Fahrer nach Start${key === "alle" ? "" : " · " + esc(regName(key))}</h2><p class="sub">Online vorqualifiziert, telefonisch qualifiziert und Talentpool – geordnet nach Startmonat, für die Planung der Abstellorte. ${L.length} Fahrer${L.length ? `: ${zahl}` : ""}.</p></div>
       <button class="pri noprint" id="vqXls" ${L.length ? "" : "disabled"}>Als Excel herunterladen</button></div>
     <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Stand</th><th>PLZ</th><th>Ort</th>${key === "alle" ? "<th>Region</th>" : ""}<th>Erreichbar</th><th>Erfahrung</th><th>Start</th><th class="n">seit</th></tr></thead>
-    <tbody>${L.map((v) => `<tr><td>${esc(v.name)}${v.hinweis ? ` <span title="${esc(v.hinweis)}" style="color:#dc2626;font-weight:700">⚠</span>` : ""}</td><td>${standT(v)}</td><td>${esc(v.plz)}</td><td>${esc(ortT(v))}</td>${key === "alle" ? `<td><span class="dot" style="background:${COL[v.region] || "#999"}"></span> ${esc(regName(v.region))}</td>` : ""}<td>${esc(v.erreichbar)}</td><td>${esc(v.erfahrung)}</td><td>${esc(v.start)}</td><td class="n">${fmtD(v.seit)}</td></tr>`).join("")
-      || `<tr><td colspan="9" class="note">Noch niemand qualifiziert${key === "alle" ? "" : " in dieser Region"}.</td></tr>`}</tbody></table></div>
-    <p class="note">Name, Wohnort und Angaben aus der Bewerbung bzw. dem Vorgespräch; bei telefonisch Qualifizierten Klasse und Punkte aus Ihrem Gespräch. ⚠ = Make hat einen Prüfhinweis in LeadTable vermerkt. Keine Telefonnummern im Export.</p></div>`;
+    <tbody>${bloecke.map(([k, n, g]) => `<tr><td colspan="${cols}" style="background:#f2f4f7;font-weight:700;padding-top:10px">${esc(n)} <span class="note" style="margin:0;font-weight:500">· ${g.length} Fahrer</span></td></tr>${g.map(zeile).join("")}`).join("")
+      || `<tr><td colspan="${cols}" class="note">Noch niemand qualifiziert${key === "alle" ? "" : " in dieser Region"}.</td></tr>`}</tbody></table></div>
+    <p class="note">Start: Antwort aus dem Online-Vorgespräch, sonst Angabe aus der Bewerbung. Bei telefonisch Qualifizierten Klasse und Punkte aus deinem Gespräch. ⚠ = Make hat einen Prüfhinweis in LeadTable vermerkt. Keine Telefonnummern im Export.</p></div>`;
 }
 let XLSX_LADEN = null;
 async function xlsxLaden() {
@@ -218,11 +247,11 @@ async function xlsxLaden() {
 async function vqExcel(key) {
   await xlsxLaden();
   const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
-  const L = QL.filter((v) => key === "alle" || v.region === key).sort((a, b) => regName(a.region).localeCompare(regName(b.region), "de") || String(a.plz).localeCompare(String(b.plz)));
-  const rows = L.map((v) => ({ Name: v.name, Stand: /online/i.test(v.status) ? "online vorqualifiziert" : "telefonisch qualifiziert", "Klasse (Telefonat)": v.klasse, PLZ: v.plz, Ort: v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : ""), Region: regName(v.region), "Am besten erreichbar": v.erreichbar,
-    Erfahrung: v.erfahrung, Start: v.start, ADR: v.adr, "Qualifiziert am": v.seit ? new Date(v.seit).toLocaleDateString("de-DE") : "", Hinweis: v.hinweis }));
+  const L = qListe(key);
+  const rows = L.map((v) => ({ Start: SG_NAME[startGrp(v)], Name: v.name, Stand: /talentpool/i.test(v.status) ? "Talentpool bestätigt" : /online/i.test(v.status) ? "online vorqualifiziert" : "telefonisch qualifiziert", "Klasse (Telefonat)": v.klasse, PLZ: v.plz, Ort: v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : ""), Region: regName(v.region), "Am besten erreichbar": v.erreichbar,
+    Erfahrung: v.erfahrung, "Start (Angabe)": startText(v), ADR: v.adr, "Qualifiziert am": v.seit ? new Date(v.seit).toLocaleDateString("de-DE") : "", Hinweis: v.hinweis }));
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws["!cols"] = [24, 22, 16, 8, 22, 18, 20, 16, 18, 10, 14, 40].map((w) => ({ wch: w }));
+  ws["!cols"] = [20, 24, 22, 16, 8, 22, 18, 20, 16, 30, 10, 14, 40].map((w) => ({ wch: w }));
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Qualifiziert");
   const tag = new Date().toLocaleDateString("en-CA");
   XLSX.writeFile(wb, `Transa_qualifiziert_${key === "alle" ? "alle" : regName(key).replace(/[^\wäöüÄÖÜß-]+/g, "_")}_${tag}.xlsx`);
