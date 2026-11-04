@@ -144,6 +144,11 @@
   /* Widgets */
   .kpiwrap{padding:0 24px}
   .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:14px;max-width:1640px;margin-left:auto;margin-right:auto}
+  .trkpis{display:none}
+  body[data-ber="transa"] .kpis:not(.trkpis){display:none}
+  body[data-ber="transa"] .trkpis{display:grid}
+  .trkpis .v small.nq{color:var(--stop-ink)}
+  .trkpis .s b{color:var(--ink);font-weight:700}
   .kpi{border-radius:22px;padding:14px 18px 15px;min-width:0;position:relative}
   .kpi .l{font-size:13px;color:var(--ink2);font-weight:600}
   .kpi .v{font-family:var(--round);font-weight:700;font-size:40px;line-height:1;margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
@@ -777,7 +782,8 @@
     .kpi{padding:10px 12px!important;border-radius:16px!important}
     .kpi .v{font-size:26px!important}.kpi .l{font-size:12px}.kpi .s{font-size:11.5px!important}
     .kpi .ring{display:none}
-    .kpis>.kpi:nth-child(5){display:none}
+    .kpis:not(.trkpis)>.kpi:nth-child(5){display:none}
+    .trkpis>.kpi:nth-child(5){grid-column:1/-1}
     input.inp,select.inp,textarea.inp,.search input{font-size:16px!important}
     .tabs-top{display:none}
     .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;padding:6px 6px calc(6px + env(safe-area-inset-bottom));
@@ -948,6 +954,14 @@
     <div class="kpi"><div class="l">Erreichungsquote</div><div class="v" id="kQuote">–</div><div class="meter"><i id="kMeter"></i></div></div>
     <div class="kpi"><div class="l">Heute anzurufen</div><div class="v" id="kQueue">–</div><div class="s" id="kQueueS"></div></div>
     <div class="kpi"><div class="l">Offene Punkte</div><div class="v" id="kOff">–</div><div class="s" id="kOffS"></div></div>
+  </div>
+  <!-- Transa: eigene Kennzahlen (Online-Vorgespräch), ersetzt im Bereich Transa die Kacheln oben -->
+  <div class="kpis trkpis" id="trKpis">
+    <div class="kpi"><div class="l">Bewerbungen heute</div><div class="v" id="tkNeu">–</div><div class="s" id="tkNeuS"></div></div>
+    <div class="kpi"><div class="l">Online-Vorgespräch beantwortet</div><div class="v" id="tkQuote">–</div><div class="meter"><i id="tkMeter"></i></div><div class="s" id="tkQuoteS"></div></div>
+    <div class="kpi"><div class="l">Qualifiziert / nicht qualifiziert</div><div class="v" id="tkQual">–</div><div class="s" id="tkQualS"></div></div>
+    <div class="kpi"><div class="l">Anrufe heute (Qualifizierte)</div><div class="v" id="tkAnr">–</div><div class="s" id="tkAnrS"></div></div>
+    <div class="kpi"><div class="l">Kosten je Bewerbung heute</div><div class="v" id="tkCpl">–</div><div class="s" id="tkCplS"></div></div>
   </div>
 </section>
 
@@ -1429,8 +1443,34 @@ async function loadStats() {
 
 // Kacheln „Neue Bewerber / Anrufversuche / Quote“ für den gewählten Bereich (Ihro, Transa, HeyRecruit)
 let HB = null, STATS = null;
+// Transa-Kacheln: Bewerbungen, Online-Vorgespräch, Qualifiziert, Anrufe, Kosten je Bewerbung (Function transa-gespraech, transa_kpi)
+let TRK = null;
+async function loadTrKpi() {
+  if (typeof BER === "undefined" || BER !== "transa") return;
+  if (loadTrKpi.t && Date.now() - loadTrKpi.t < 30000) return; loadTrKpi.t = Date.now();
+  try { TRK = await api("transa_kpi"); renderTrKpi(); } catch (e) { $("tkNeuS").textContent = "nicht geladen: " + e.message; }
+}
+function renderTrKpi() {
+  const k = TRK; if (!k) return;
+  const eur = (v) => v == null ? "–" : v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+  const b = k.bewerbungen, v = k.vorgespraech, q = k.qualifiziert, c = k.kosten;
+  $("tkNeu").innerHTML = `${b.heute}<small> / ${b.gesamt}</small>`;
+  $("tkNeuS").innerHTML = `<span>heute / gesamt · 7 Tage: <b>${b.d7}</b></span>`;
+  $("tkQuote").innerHTML = v.quote == null ? "–" : `${v.quote}<small>%</small>`;
+  $("tkMeter").style.width = (v.quote || 0) + "%";
+  $("tkQuoteS").innerHTML = `<span><b>${v.beantwortet}</b> von <b>${v.eingeladen}</b> Mails beantwortet</span><span>${v.wartend} warten${v.keine_reaktion ? ` · ${v.keine_reaktion} ohne Reaktion` : ""}</span>`;
+  $("tkQual").innerHTML = `${q.online + q.telefon}<small class="nq"> / ${q.nicht}</small>`;
+  $("tkQualS").innerHTML = `<span><b>${q.online}</b> online vorqualifiziert</span><span><b>${q.telefon}</b> nach Telefonat</span>`;
+  const t = HB ? HB.transa : null;
+  $("tkAnr").textContent = t ? t.anrufe : "–";
+  $("tkAnrS").innerHTML = (t ? `<span class="dot go"><span>${t.erreicht} erreicht</span></span><span class="dot stop"><span>${t.nicht} nicht</span></span>` : "") + `<span>${q.online ? `<b>${q.online}</b> warten auf Anruf` : "niemand wartet auf Anruf"}</span>`;
+  $("tkCpl").textContent = eur(c.cpl_heute);
+  $("tkCplS").innerHTML = `<span>7 Tage: <b>${eur(c.cpl_d7)}</b></span><span>Wochenende: <b>${eur(c.cpl_we)}</b></span>`;
+  $("tkCpl").title = `Werbekosten heute ${eur(c.heute)}, 7 Tage ${eur(c.d7)}, Wochenende ${c.wochenende.map((d) => d.slice(8, 10) + "." + d.slice(5, 7) + ".").join("–")} ${eur(c.we)}`;
+}
 function renderKpiBer() {
   if (!STATS || typeof BER === "undefined") return;
+  if (BER === "transa") { if (TRK) renderTrKpi(); loadTrKpi(); }
   const g = HB ? HB.gesamt : STATS.total, t = HB ? HB[BER] : STATS.total;
   $("kNeu").textContent = t.neu;
   $("kNeuS").textContent = BER === "ihro" ? "aus den Ihro-Kampagnen" : BER === "transa" ? "Transa-Kampagnen" : "HeyRecruit";
