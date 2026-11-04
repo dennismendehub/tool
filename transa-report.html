@@ -122,7 +122,51 @@ const fmtD = (iso) => new Date(iso).toLocaleDateString("de-DE", { day: "2-digit"
 function conn() { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } }
 function km(a, b, c, d) { const R = 6371, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
 
-let DATA = null, TAB = "alle", map = null, VQ = null, QL = null;
+let DATA = null, TAB = "alle", map = null, VQ = null, QL = null, AB = null;
+/* Abgelehnt / abgesagt mit Grund (Dennis, 04.11.2026). Grund: K.o. aus dem Telefonat, sonst die Nein-Antworten aus dem
+   letzten Online-Vorgespräch in der LeadTable-Beschreibung (Make schreibt dort „Frage: Antwort“-Zeilen hinein). */
+const AB_ART = { "nicht qualifiziert": "nicht qualifiziert", "absage durch bewerber": "Absage durch Bewerber", "talentpool bestätigt": "Talentpool (Start später)" };
+function abGrund(l) {
+  const g = l.gespraech;
+  if (g && !g.entwurf && Array.isArray(g.ko) && g.ko.length) return "Telefonat, K.o.: " + g.ko.join(", ");
+  const d = String(l.description || ""), i = d.toLowerCase().lastIndexOf("vorgespräch online");
+  if (i >= 0) {
+    const block = d.slice(i).split(/\n/).map((z) => z.trim()).filter(Boolean);
+    const kopf = block[0] || "", rest = block.slice(1);
+    const nein = rest.filter((z) => /:\s*(nein\b|passt nicht|.*anderes)/i.test(z) && !/am besten erreichbar/i.test(z));
+    const warn = rest.filter((z) => /⚠|bitte prüfen/i.test(z));
+    const teile = [...nein, ...warn.map((z) => z.replace(/^⚠\s*/, "⚠ "))];
+    if (/:\s*nein/i.test(kopf)) teile.unshift("Vorgespräch: kein Interesse");
+    if (teile.length) return "Online-Vorgespräch: " + [...new Set(teile)].join(" · ");
+  }
+  if (g && !g.entwurf && g.klasse) return `Telefonat: ${g.punkte ?? "?"} Punkte, Klasse ${g.klasse}`;
+  return "";
+}
+function abRow(l) { const v = vqRow(l); const st = String(l.status || "").trim(); return { ...v, status: st, art: AB_ART[st.toLowerCase()] || st, grund: abGrund(l) }; }
+function abCard(key) {
+  if (!AB) return `<div class="card" style="margin-top:14px"><h2>Abgelehnt / abgesagt</h2><p class="note">Liste konnte nicht geladen werden.</p></div>`;
+  const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
+  const L = AB.filter((v) => key === "alle" || v.region === key).sort((a, b) => String(b.seit || "").localeCompare(String(a.seit || "")));
+  const farbe = (a) => /talentpool/i.test(a) ? "#6b7280" : /absage/i.test(a) ? "#b45309" : "#dc2626";
+  const ortT = (v) => v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : "");
+  return `<div class="card" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
+      <div><h2>Abgelehnt / abgesagt${key === "alle" ? "" : " · " + esc(regName(key))}</h2><p class="sub">Nicht qualifiziert (online oder im Telefonat), Absage durch den Bewerber und Talentpool (Start später) – mit Grund. ${L.length} Bewerber.</p></div>
+      <button class="pri noprint" id="abXls" ${L.length ? "" : "disabled"}>Als Excel herunterladen</button></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Ergebnis</th><th>Grund</th><th>PLZ / Ort</th>${key === "alle" ? "<th>Region</th>" : ""}<th class="n">seit</th></tr></thead>
+    <tbody>${L.map((v) => `<tr><td>${esc(v.name)}</td><td><span style="color:${farbe(v.art)};font-weight:600">${esc(v.art)}</span></td><td>${esc(v.grund) || '<span class="note" style="margin:0">kein Grund vermerkt</span>'}</td><td>${esc([v.plz, ortT(v)].filter(Boolean).join(" "))}</td>${key === "alle" ? `<td><span class="dot" style="background:${COL[v.region] || "#999"}"></span> ${esc(regName(v.region))}</td>` : ""}<td class="n">${fmtD(v.seit)}</td></tr>`).join("")
+      || `<tr><td colspan="6" class="note">Noch niemand abgelehnt oder abgesagt${key === "alle" ? "" : " in dieser Region"}.</td></tr>`}</tbody></table></div>
+    <p class="note">Grund: bei K.o. im Telefonat die K.o.-Fragen, sonst die Nein-Antworten aus dem Online-Vorgespräch (aus der LeadTable-Beschreibung), sonst Punkte/Klasse aus dem Telefonat.</p></div>`;
+}
+async function abExcel(key) {
+  await xlsxLaden();
+  const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
+  const L = AB.filter((v) => key === "alle" || v.region === key).sort((a, b) => String(b.seit || "").localeCompare(String(a.seit || "")));
+  const rows = L.map((v) => ({ Name: v.name, Ergebnis: v.art, Grund: v.grund, PLZ: v.plz, Ort: v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : ""), Region: regName(v.region), "seit": v.seit ? new Date(v.seit).toLocaleDateString("de-DE") : "" }));
+  const ws = XLSX.utils.json_to_sheet(rows); ws["!cols"] = [24, 22, 70, 8, 22, 18, 12].map((w) => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Abgelehnt");
+  XLSX.writeFile(wb, `Transa_abgelehnt_${key === "alle" ? "alle" : regName(key).replace(/[^\wäöüÄÖÜß-]+/g, "_")}_${new Date().toLocaleDateString("en-CA")}.xlsx`);
+}
+function abBind(key) { const b = document.getElementById("abXls"); if (b) b.onclick = async () => { b.disabled = true; b.textContent = "wird erstellt …"; try { await abExcel(key); } catch (e) { alert(e.message); } b.disabled = false; b.textContent = "Als Excel herunterladen"; }; }
 /* Kennzahlen oben (Dennis, 04.11.2026): Bewerbungen gesamt / heute / 7 Tage, Qualifiziert gesamt + heute,
    Werbekosten, Kosten je Bewerbung heute und im Durchschnitt – für „Alle Regionen“ und je Region, immer seit Kampagnenstart */
 const bDay = (d) => new Date(d).toLocaleDateString("en-CA", { timeZone: "Europe/Berlin" });
@@ -166,11 +210,13 @@ function vqCard(key) {
     <p class="note">Name, Wohnort und Angaben aus der Bewerbung bzw. dem Vorgespräch; bei telefonisch Qualifizierten Klasse und Punkte aus Ihrem Gespräch. ⚠ = Make hat einen Prüfhinweis in LeadTable vermerkt. Keine Telefonnummern im Export.</p></div>`;
 }
 let XLSX_LADEN = null;
+async function xlsxLaden() {
+  if (window.XLSX) return;
+  XLSX_LADEN = XLSX_LADEN || new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = () => { XLSX_LADEN = null; no(new Error("Excel-Baustein nicht geladen")); }; document.head.appendChild(sc); });
+  await XLSX_LADEN;
+}
 async function vqExcel(key) {
-  if (!window.XLSX) {
-    XLSX_LADEN = XLSX_LADEN || new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = () => no(new Error("Excel-Baustein nicht geladen")); document.head.appendChild(sc); });
-    await XLSX_LADEN;
-  }
+  await xlsxLaden();
   const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
   const L = QL.filter((v) => key === "alle" || v.region === key).sort((a, b) => regName(a.region).localeCompare(regName(b.region), "de") || String(a.plz).localeCompare(String(b.plz)));
   const rows = L.map((v) => ({ Name: v.name, Stand: /online/i.test(v.status) ? "online vorqualifiziert" : "telefonisch qualifiziert", "Klasse (Telefonat)": v.klasse, PLZ: v.plz, Ort: v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : ""), Region: regName(v.region), "Am besten erreichbar": v.erreichbar,
@@ -200,6 +246,11 @@ async function load() {
       QL = r2.ok ? (d2.leads || []).filter((l) => !TEST_IDS.has(l.lead_id) && !/^test\b/i.test(l.name || "")).map((l) => ({ ...vqRow(l), status: String(l.status || "").trim() })) : null;
       VQ = QL ? QL.filter((v) => /^online-vorqualifiziert$/i.test(v.status)) : null;
     } catch { VQ = null; QL = null; }
+    try {
+      const r3 = await fetch(c.url + "/functions/v1/transa-gespraech", { method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": c.token }, body: JSON.stringify({ action: "transa_status_liste", stati: ["Nicht qualifiziert", "Absage durch Bewerber", "Talentpool bestätigt"], mitText: true }) });
+      const d3 = await r3.json().catch(() => ({}));
+      AB = r3.ok ? (d3.leads || []).filter((l) => !TEST_IDS.has(l.lead_id) && !/^test\b/i.test(l.name || "")).map(abRow) : null;
+    } catch { AB = null; }
     render();
   } catch (e) { $("main").innerHTML = '<div class="msg err">Konnte nicht laden: ' + esc(e.message) + '</div>'; }
 }
@@ -370,8 +421,9 @@ function renderAlle(reg, leads, kosten) {
       <div class="qrows">${rows.map(({ r, s }) => `<div class="qrow"><span><span class="dot" style="background:${COL[r.key]}"></span> ${esc(r.name)}</span>${qbar(s)}<b><span style="color:#16a34a">${s.qual}</span> / <span style="color:#dc2626">${s.nq}</span> / ${s.n}</b></div>`).join("")}</div>
       <p class="note">Zahlen: qualifiziert (online + von dir) / nicht qualifiziert / Bewerbungen gesamt. Grundlage ist der Status in LeadTable.</p></div>
   </div>
-  ${vqCard("alle")}`;
-  vqBind("alle");
+  ${vqCard("alle")}
+  ${abCard("alle")}`;
+  vqBind("alle"); abBind("alle");
   baseMap([51.2, 9.6], 6);
   DATA.regionen.forEach((r) => addRegion(r, leads.filter((l) => l.region === r.key), { heat: 22 }));
   const b = DATA.regionen.filter((r) => r.ziel).map((r) => [r.ziel.lat, r.ziel.lon]);
@@ -421,8 +473,9 @@ function renderRegion(r, L, K) {
       <p class="sub" style="margin-top:12px">ADR-Schein</p>${hbars(verteil(L, "adr").map(([k, v]) => [k, v, c]))}
       <p class="note">CE + Code 95: ${pct(s.ce95, s.n)} · Wohnsitz in Deutschland: ${pct(L.filter((l) => /^ja/i.test(l.wohnsitz_de)).length, s.n)}</p></div>
   </div>
-  ${vqCard(r.key)}`;
-  vqBind(r.key);
+  ${vqCard(r.key)}
+  ${abCard(r.key)}`;
+  vqBind(r.key); abBind(r.key);
   baseMap(r.ziel ? [r.ziel.lat, r.ziel.lon] : [51.2, 9.6], r.ziel ? 8 : 6);
   addRegion(r, L);
   if (!map) return;
