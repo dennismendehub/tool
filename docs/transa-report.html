@@ -122,7 +122,49 @@ const fmtD = (iso) => new Date(iso).toLocaleDateString("de-DE", { day: "2-digit"
 function conn() { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } }
 function km(a, b, c, d) { const R = 6371, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(x)); }
 
-let DATA = null, TAB = "alle", map = null;
+let DATA = null, TAB = "alle", map = null, VQ = null;
+/* Online vorqualifiziert: Zeile für Liste und Excel */
+const VQ_REG = [["fulda", /fulda|hersfeld/i], ["ruhr", /ruhr/i], ["rheinmain", /rhein[\s-]*main/i], ["osnabrueck", /osnabr/i], ["halle", /halle|leipzig/i]];
+const REGWORT = /^(ruhr|ruhrgebiet|nordwest|nordost|suedwest|südwest|suedost|südost|rheinmain|rhein-main|mitte|osten|westen|norden|sueden|süden|ost|west|nord|süd|sued)$/i;
+function vqRow(l) {
+  const a = {}; for (const x of (l.answers || [])) a[String(x.q).toLowerCase()] = String(x.a ?? "").trim();
+  const d = String(l.description || "").split(/\n/);
+  let err = ""; for (const z of d) { const m = z.match(/am besten erreichbar\s*:\s*(.+)/i); if (m) err = m[1].trim(); }
+  const warn = [...new Set(d.filter((z) => /⚠|bitte prüfen/i.test(z)).map((z) => z.trim()))].join(" | ");
+  const reg = (VQ_REG.find(([, re]) => re.test(l.kampagne || "")) || ["allgemein"])[0];
+  return { id: l.lead_id, name: l.name || "", plz: (a.plz || "").replace(/\D/g, "").slice(0, 5), ort: [a.wohnort, a.ort].find((o) => o && !REGWORT.test(o)) || "", region: reg,
+    kampagne: l.kampagne || "", seit: l.last_status_change || l.lead_created_at, erreichbar: err, erfahrung: a.erfahrung || "", start: a.start || "", adr: a.adr || "", hinweis: warn };
+}
+function vqCard(key) {
+  if (!VQ) return `<div class="card" style="margin-top:14px"><h2>Online vorqualifiziert</h2><p class="note">Liste konnte nicht geladen werden.</p></div>`;
+  const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
+  const L = VQ.filter((v) => key === "alle" || v.region === key).sort((a, b) => regName(a.region).localeCompare(regName(b.region), "de") || String(a.plz).localeCompare(String(b.plz)));
+  const ortT = (v) => { const p = PLZ[v.plz]; return v.ort || (p ? p[2] : ""); };
+  return `<div class="card" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap">
+      <div><h2>Online vorqualifiziert${key === "alle" ? "" : " · " + esc(regName(key))}</h2><p class="sub">Haben das Online-Vorgespräch ausgefüllt und passen – für die Planung der Abstellorte. ${L.length} Fahrer.</p></div>
+      <button class="pri noprint" id="vqXls" ${L.length ? "" : "disabled"}>Als Excel herunterladen</button></div>
+    <div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>PLZ</th><th>Ort</th>${key === "alle" ? "<th>Region</th>" : ""}<th>Erreichbar</th><th>Erfahrung</th><th>Start</th><th class="n">seit</th></tr></thead>
+    <tbody>${L.map((v) => `<tr><td>${esc(v.name)}${v.hinweis ? ` <span title="${esc(v.hinweis)}" style="color:#dc2626;font-weight:700">⚠</span>` : ""}</td><td>${esc(v.plz)}</td><td>${esc(ortT(v))}</td>${key === "alle" ? `<td><span class="dot" style="background:${COL[v.region] || "#999"}"></span> ${esc(regName(v.region))}</td>` : ""}<td>${esc(v.erreichbar)}</td><td>${esc(v.erfahrung)}</td><td>${esc(v.start)}</td><td class="n">${fmtD(v.seit)}</td></tr>`).join("")
+      || `<tr><td colspan="8" class="note">Noch niemand online vorqualifiziert${key === "alle" ? "" : " in dieser Region"}.</td></tr>`}</tbody></table></div>
+    <p class="note">Name, Wohnort und Angaben aus der Bewerbung bzw. dem Vorgespräch. ⚠ = Make hat einen Prüfhinweis in LeadTable vermerkt. Keine Telefonnummern im Export.</p></div>`;
+}
+let XLSX_LADEN = null;
+async function vqExcel(key) {
+  if (!window.XLSX) {
+    XLSX_LADEN = XLSX_LADEN || new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = () => no(new Error("Excel-Baustein nicht geladen")); document.head.appendChild(sc); });
+    await XLSX_LADEN;
+  }
+  const regName = (k) => DATA.regionen.find((r) => r.key === k)?.name || "ohne Region";
+  const L = VQ.filter((v) => key === "alle" || v.region === key).sort((a, b) => regName(a.region).localeCompare(regName(b.region), "de") || String(a.plz).localeCompare(String(b.plz)));
+  const rows = L.map((v) => ({ Name: v.name, PLZ: v.plz, Ort: v.ort || (PLZ[v.plz] ? PLZ[v.plz][2] : ""), Region: regName(v.region), "Am besten erreichbar": v.erreichbar,
+    Erfahrung: v.erfahrung, Start: v.start, ADR: v.adr, "Online vorqualifiziert am": v.seit ? new Date(v.seit).toLocaleDateString("de-DE") : "", Hinweis: v.hinweis }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws["!cols"] = [24, 8, 22, 18, 20, 16, 18, 10, 14, 40].map((w) => ({ wch: w }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Vorqualifiziert");
+  const tag = new Date().toLocaleDateString("en-CA");
+  XLSX.writeFile(wb, `Transa_vorqualifiziert_${key === "alle" ? "alle" : regName(key).replace(/[^\wäöüÄÖÜß-]+/g, "_")}_${tag}.xlsx`);
+}
+function vqBind(key) { const b = document.getElementById("vqXls"); if (b) b.onclick = async () => { b.disabled = true; b.textContent = "wird erstellt …"; try { await vqExcel(key); } catch (e) { alert(e.message); } b.disabled = false; b.textContent = "Als Excel herunterladen"; }; }
 
 async function load() {
   const c = conn();
@@ -133,7 +175,14 @@ async function load() {
     const d = await r.json().catch(() => ({}));
     if (r.status === 401) { localStorage.removeItem(KEY); $("cErr").textContent = "Schlüssel stimmt nicht."; $("conn").classList.add("show"); return; }
     if (!r.ok) throw new Error(d.error || "Fehler " + r.status);
-    DATA = d; render();
+    DATA = d;
+    // Liste „Online vorqualifiziert“ für die Dispo (mit Namen; aus der Function transa-gespraech)
+    try {
+      const r2 = await fetch(c.url + "/functions/v1/transa-gespraech", { method: "POST", headers: { "Content-Type": "application/json", "x-dashboard-token": c.token }, body: JSON.stringify({ action: "transa_status_liste", stati: ["Online-Vorqualifiziert"] }) });
+      const d2 = await r2.json().catch(() => ({}));
+      VQ = r2.ok ? (d2.leads || []).filter((l) => !TEST_IDS.has(l.lead_id) && !/^test\b/i.test(l.name || "")).map(vqRow) : null;
+    } catch { VQ = null; }
+    render();
   } catch (e) { $("main").innerHTML = '<div class="msg err">Konnte nicht laden: ' + esc(e.message) + '</div>'; }
 }
 
@@ -305,7 +354,9 @@ function renderAlle(reg, leads, kosten) {
     <div class="card"><h2>Stand je Region</h2><p class="sub">Anteil der Bewerbungen im gewählten Zeitraum, Farben wie auf der Karte (weiß = neu, ohne Balken)</p>
       <div class="qrows">${rows.map(({ r, s }) => `<div class="qrow"><span><span class="dot" style="background:${COL[r.key]}"></span> ${esc(r.name)}</span>${qbar(s)}<b><span style="color:#16a34a">${s.qual}</span> / <span style="color:#dc2626">${s.nq}</span> / ${s.n}</b></div>`).join("")}</div>
       <p class="note">Zahlen: qualifiziert (online + von dir) / nicht qualifiziert / Bewerbungen gesamt. Grundlage ist der Status in LeadTable.</p></div>
-  </div>`;
+  </div>
+  ${vqCard("alle")}`;
+  vqBind("alle");
   baseMap([51.2, 9.6], 6);
   DATA.regionen.forEach((r) => addRegion(r, leads.filter((l) => l.region === r.key), { heat: 22 }));
   const b = DATA.regionen.filter((r) => r.ziel).map((r) => [r.ziel.lat, r.ziel.lon]);
@@ -357,7 +408,9 @@ function renderRegion(r, L, K) {
       <p class="sub" style="margin-top:12px">Möglicher Start</p>${hbars(verteil(L, "start").map(([k, v]) => [k, v, c]))}
       <p class="sub" style="margin-top:12px">ADR-Schein</p>${hbars(verteil(L, "adr").map(([k, v]) => [k, v, c]))}
       <p class="note">CE + Code 95: ${pct(s.ce95, s.n)} · Wohnsitz in Deutschland: ${pct(L.filter((l) => /^ja/i.test(l.wohnsitz_de)).length, s.n)}</p></div>
-  </div>`;
+  </div>
+  ${vqCard(r.key)}`;
+  vqBind(r.key);
   baseMap(r.ziel ? [r.ziel.lat, r.ziel.lon] : [51.2, 9.6], r.ziel ? 8 : 6);
   addRegion(r, L);
   if (!map) return;
