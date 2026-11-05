@@ -239,6 +239,7 @@
   .prow .mid b{font-weight:600}
   .prow .mid .sub{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .prow .r{flex:none;display:flex;gap:6px;align-items:center}
+  .prow .tdel{padding:4px 6px;color:var(--muted)}.prow .tdel:hover{color:#d70015}.prow .tdel svg{display:block}
   .hbox{display:flex;gap:8px 10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:14px;background:var(--beacon-tint);margin-bottom:8px;font-size:14px}
   .hbox .grow{flex:1}
   .minikpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px}
@@ -3694,7 +3695,7 @@ async function loadPipe() {
 function terminRow(t) {
   return `<div class="prow" data-tm="${t.id}"><div class="dt">${dayHtml(t.datum, t.uhrzeit)}</div>
     <div class="mid"><b>${esc(t.name)}</b><div class="sub">${esc([t.meas, t.ort ? "Treffpunkt " + t.ort : "", t.note].filter(Boolean).join(" · "))}</div></div>
-    <div class="r"><span class="pill ${t.status === "abgesagt" ? "stop" : t.status === "erledigt" ? "" : /mitfahrt|probetag/i.test(t.art) ? "go" : "blue"}">${esc(t.art)}${t.status !== "offen" ? " · " + t.status : ""}</span>${t.lead_id ? `<button class="btn sm quiet" data-lead="${esc(t.lead_id)}" title="Bewerberkarte öffnen">öffnen</button>` : ""}</div></div>`;
+    <div class="r"><span class="pill ${t.status === "abgesagt" ? "stop" : t.status === "erledigt" ? "" : /mitfahrt|probetag/i.test(t.art) ? "go" : "blue"}">${esc(t.art)}${t.status !== "offen" ? " · " + t.status : ""}</span>${t.lead_id ? `<button class="btn sm quiet" data-lead="${esc(t.lead_id)}" title="Bewerberkarte öffnen">öffnen</button>` : ""}<button class="btn sm quiet tdel" data-tdel="${t.id}" title="Termin löschen" aria-label="Termin löschen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button></div></div>`;
 }
 function hireRow(h) {
   const [lab, c] = hireLabel(h), iso = deToIso(h.start);
@@ -3737,6 +3738,11 @@ $("vPipe").addEventListener("click", async (e) => {
   const b = e.target.closest("button");
   try {
     if (b && b.dataset.lead) { e.stopPropagation(); openLead(b.dataset.lead); return; }
+    if (b && b.dataset.tdel) {
+      const x = P.termine.find((y) => y.id === Number(b.dataset.tdel)); if (!x) return;
+      if (!confirm(`Termin von ${x.name} (${x.art}) löschen?\n\nIn LeadTable ändert sich nichts.`)) return;
+      b.disabled = true; await api("termin_delete", { id: x.id }); toast("Termin gelöscht"); await loadPipe(); return;
+    }
     if (b && b.dataset.hv) {
       const x = P.termine.find((y) => y.id === Number(b.dataset.id)); if (!x) return;
       if (b.dataset.hv === "hire") { openHire({ lead_id: x.lead_id, name: x.name, relation: x.meas, art: "unterschrieben", terminId: x.id }); return; }
